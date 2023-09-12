@@ -1,2 +1,3 @@
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 solady/=lib/solady/
+zora-721-contracts/=lib/zora-721-contracts/src/
