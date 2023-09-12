@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 import {Tournament} from "./Tournament.sol";
 
 import {ITournament} from "./interfaces/ITournament.sol";
 
-import "hardhat/console.sol";
+import "forge-std/console.sol";
 
 
 contract TournamentBetSystem is Ownable {

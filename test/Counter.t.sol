@@ -2,16 +2,17 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Counter} from "../src/Counter.sol";
+import {Tournament} from "../src/Tournament.sol";
 
 contract CounterTest is Test {
-    Counter public counter;
+    Tournament public tournament;
 
     function setUp() public {
-        counter = new Counter();
-        counter.setNumber(0);
+        //tournament = new Tournament();
+        //counter.setNumber(0);
     }
 
+    /*
     function test_Increment() public {
         counter.increment();
         assertEq(counter.number(), 1);
@@ -21,4 +22,5 @@ contract CounterTest is Test {
         counter.setNumber(x);
         assertEq(counter.number(), x);
     }
+    */
 }

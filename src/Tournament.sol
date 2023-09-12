@@ -5,7 +5,7 @@ import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
-import {ERC721Drop} from "packages/zora-721-contracts/src/ERC721Drop.sol";
+//import {ERC721Drop} from "packages/zora-721-contracts/src/ERC721Drop.sol";
 
 import {TournamentPrizes} from "./TournamentPrizes.sol";
 import {TournamentBetSystem} from "./TournamentBetSystem.sol";
