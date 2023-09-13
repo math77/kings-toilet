@@ -6,14 +6,16 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 import {ERC721Drop} from "zora-721-contracts/ERC721Drop.sol";
+import {IERC721Drop} from "zora-721-contracts/interfaces/IERC721Drop.sol";
+import {ZoraNFTCreatorV1} from "zora-721-contracts/ZoraNFTCreatorV1.sol";
+
+import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
 import {TournamentPrizes} from "./TournamentPrizes.sol";
 import {TournamentBetSystem} from "./TournamentBetSystem.sol";
 
 import {ITournament} from "./interfaces/ITournament.sol";
 
-
-import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
 
 contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
@@ -23,6 +25,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   uint256 private _duelId;
   uint256 private _reignId;
 
+  //ZoraNFTCreatorV1 public immutable zoraNftCreator;  
   TournamentPrizes private _tournamentPrizes;
   TournamentBetSystem private _tournamentBetSystem;
 
@@ -138,6 +141,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     duel.duelStage = DuelStage.Accepted;
 
+    _duelists[duel.challenger].dueling = true;
+    _duelists[duel.challenged].dueling = true;
+
     emit DuelAccepted({duelId: duelId});
   }
 
@@ -252,6 +258,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       winTokenId = duel.challengedEntryId;
     }
 
+    _duelists[winner].dueling = false;
+    _duelists[loser].dueling = false;
+
     //reclaim nft for the king
     
     _transfer(winner, _reigns[_reignId].kingAddr, winTokenId);
@@ -316,7 +325,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     //check if duelist is in a duel????
     if (!_isDuelist[duelist]) revert NotADuelistError();
-
+    if (_duelists[duelist].dueling) revert CurrentlyDuelingError();
     if (_duelists[duelist].guillotined) revert HeadGuillotinedError();
 
     _duelists[duelist].guillotined = true;
@@ -335,14 +344,12 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     if (d.guillotined) revert HeadGuillotinedError();
 
     d.veggies += amount;
-
-    //USE EXTERNAL FUNCTION WITH EMIT EVENT INSTEAD OF STORAGE THE DATA?
   }
 
   function betOnDuel(uint256 duelId, address bettingOn) external payable {
     Duel storage duel = _duels[duelId][_reignId];
 
-    if (duel.duelStage != DuelStage.Accepted && duel.duelStage != DuelStage.AwaitingJudgment) revert CannotBet();
+    if (duel.duelStage != DuelStage.Accepted && duel.duelStage != DuelStage.AwaitingJudgment) revert CannotBetError();
     if (bettingOn != duel.challenger && bettingOn != duel.challenged) revert DuelistNotDuelParticipantError();
     if (msg.value < DUEL_MIN_BEAT) revert ValueSentLowerThanMinBetError();
 
@@ -360,6 +367,23 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     emit CreatedDuelBet({
       duelId: duelId
     });
+  }
+
+  function cancelBet(uint256 duelId, uint256 betId) external {
+    Duel storage duel = _duels[duelId][_reignId];
+
+    if (duel.duelStage == DuelStage.AwaitingJudgment) revert CannotCancelBetError();
+
+
+    ITournament.Bet memory bet = _tournamentBetSystem.betDetails(betId);
+
+    if (duel.challenger == bet.bettingOn) {
+      duel.challengerTotalBetted -= bet.betAmount;
+    } else {
+      duel.challengedTotalBetted -= bet.betAmount;
+    }
+
+    _tournamentBetSystem.cancelBet(betId);
   }
 
   function currentReignId() external view returns (uint256) {
@@ -406,6 +430,36 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function isKing(address user) public view returns (bool) {
     return user == _reigns[_reignId].kingAddr;
   }
+
+  /*
+  function createDuelistDrop(address duelist) internal {
+    ERC721Drop drop = ERC721Drop(
+      payable(
+        zoraNftCreator.createEditionWithReferral({
+          name: "",
+          symbol: "",
+          editionSize: type(uint64).max,
+          royaltyBPS: 0,
+          fundsRecipient: payable(duelist),
+          defaultAdmin: address(this),
+          saleConfig: IERC721Drop.SalesConfiguration({
+            publicSalePrice: 0,
+            maxSalePurchasePerAddress: type(uint32).max,
+            publicSaleStart: uint64(block.timestamp),
+            publicSaleEnd: uint64(block.timestamp +  3 days),
+            presaleStart: 0,
+            presaleEnd: 0,
+            presaleMerkleRoot: 0x0
+          }),
+          description: "",
+          animationURI: "",
+          imageURI: "", // ????
+          createReferral: address(this)
+        })
+      )
+    );
+  }
+  */
 
   function _burn(uint256 tokenId) internal virtual override {
     super._burn(tokenId);

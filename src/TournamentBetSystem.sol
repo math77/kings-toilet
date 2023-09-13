@@ -58,6 +58,17 @@ contract TournamentBetSystem is Ownable {
   }
 
 
+  function cancelBet(uint256 betId) external onlyTournament {
+
+    ITournament.Bet memory bet = _bets[betId];
+
+    delete _bets[betId];
+
+    (bool sent, ) = bet.owner.call{value: bet.betAmount}("");
+
+    if(!sent) revert WithdrawBetProfitsError();
+  }
+
   function withdrawBetProfit(uint256 betId) external {
     ITournament.Bet memory bet = _bets[betId];
 

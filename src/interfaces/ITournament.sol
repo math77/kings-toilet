@@ -52,6 +52,7 @@ interface ITournament {
     uint256 treasure;
     uint256 veggies;
     bool guillotined;
+    bool dueling;
   }
 
   struct Duel {
@@ -133,6 +134,8 @@ interface ITournament {
 
   error HeadGuillotinedError();
 
+  error CurrentlyDuelingError();
+
   error DuelFinishedError();
 
   error DuelDeclinedError();
@@ -163,7 +166,9 @@ interface ITournament {
 
   error DuelistNotDuelParticipantError();
 
-  error CannotBet();
+  error CannotBetError();
+
+  error CannotCancelBetError();
 
 
   function duelistRegister(string calldata name) external payable;
