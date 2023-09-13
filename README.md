@@ -1,5 +1,10 @@
 ## King's Toilet Contracts
 
+Duel, Please the King, Win... and may become the next King?!
+
+![alt text](https://github.com/math77/kings-toilet/blob/main/assets/the-king.png?raw=true)
+
+
 [![](https://img.shields.io/badge/Incubated_by-100.builders-9146ff?logo=gamejolt&logoColor=white&labelColor=464646&style=for-the-badge)](https://app.100.builders/directory)
 
 ## First, bat-signal!
