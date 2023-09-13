@@ -37,7 +37,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   mapping(address => Duelist) private _duelists;
   mapping(address => bool) private _isDuelist;
   mapping(uint256 contestId => Contest) private _contests;
-  //mapping(uint256 duelId => Duel) private _duels;
   mapping(uint256 reignId => Reign) private _reigns;
 
   mapping(uint256 duelId => mapping(uint256 reignId => Duel)) private _duels;
@@ -175,33 +174,13 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     }
 
     Reign memory reign;
-    reign.kingName = kingName;
+    reign.name = kingName;
     reign.kingAddr = msg.sender;
     reign.reignStart = uint64(block.timestamp);
     reign.reignEnd = uint64(block.timestamp + 7 days);
     reign.entryDeadline = uint64(block.timestamp + 5 days);
 
     _reigns[++_reignId] = reign;
-
-
-    /*
-    _reigns[++_reignId] = Reign({
-      kingName: kingName,
-      kingAddr: msg.sender,
-      successorAddr: address(0),
-      pointerToKingBio: address(0),
-      winner: address(0),
-      reignStart: uint64(block.timestamp),
-      reignEnd: uint64(block.timestamp + 7 days),
-      entryDeadline: uint64(block.timestamp + 5 days),
-      amountCollected: 0,
-      amountDuels: 0,
-      amountWins: 0,
-      amountGuillotined: 0,
-      amountContests: 0,
-      currentTreasure: _reigns[_reignId].currentTreasure
-    });
-    */
 
     //call the another contract to mint nft
     _tournamentPrizes.mint(msg.sender, 1, 1);

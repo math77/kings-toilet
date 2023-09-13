@@ -19,7 +19,7 @@ interface ITournament {
   }
 
   struct Reign {
-    string kingName;
+    string name;
     address kingAddr;
     address successorAddr;
     address pointerToKingBio;
@@ -205,6 +205,11 @@ interface ITournament {
     uint256 duelId,
     address bettingOn
   ) payable external;
+
+  function cancelBet(
+    uint256 duelId,
+    uint256 betId
+  ) external;
 
   function throwVeggies(address duelist, uint256 amount) external;
 
