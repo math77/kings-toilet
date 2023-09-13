@@ -7,6 +7,3 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/vectorized/solady
-[submodule "lib/zora-drops-contracts"]
-	path = lib/zora-drops-contracts
-	url = https://github.com/ourzora/zora-drops-contracts
