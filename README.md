@@ -20,14 +20,14 @@ Take in mind the kingdom note below:
 ***In a realm of yore, where shadows danced on cobblestone,
 There reigned a king, stout and wide, whose whims were widely known.
 A connoisseur of art and jests, in memes he sought delight,
-Yet oft his mirth could swiftly wane, veering towards cruel might.
+Yet oft his mirth could swiftly wane, veering towards cruel might.***
 
-Upon a throne bizarrely shaped, a toilet grand and high,
+***Upon a throne bizarrely shaped, a toilet grand and high,
 He sat, a ruler of caprice, beneath the azure sky.
 A fickle heart, with passions vast, demanded ceaseless cheer,
-Or wrath would swell, a tempest fierce, none dared to draw too near.
+Or wrath would swell, a tempest fierce, none dared to draw too near.***
 
-Thus, knights and jesters, artisans, sought ever to appease,
+***Thus, knights and jesters, artisans, sought ever to appease,
 In quests and feats, they toiled hard, their prowess put to ease.
 Through valleys deep and mountains tall, they sought to bring him glee,
 For in their toil, they knew full well, the heart of kings was free...***
