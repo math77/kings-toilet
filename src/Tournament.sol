@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-import {ERC721Drop} from "zora-721-contracts/ERC721Drop.sol";
-import {IERC721Drop} from "zora-721-contracts/interfaces/IERC721Drop.sol";
-import {ZoraNFTCreatorV1} from "zora-721-contracts/ZoraNFTCreatorV1.sol";
+import {ERC721Drop} from "zora/src/ERC721Drop.sol";
+import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
+import {ZoraNFTCreatorV1} from "zora/src/ZoraNFTCreatorV1.sol";
 
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
@@ -409,8 +409,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function isKing(address user) public view returns (bool) {
     return user == _reigns[_reignId].kingAddr;
   }
-
-  /*
+  
   function createDuelistDrop(address duelist) internal {
     ERC721Drop drop = ERC721Drop(
       payable(
@@ -438,7 +437,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       )
     );
   }
-  */
 
   function _burn(uint256 tokenId) internal virtual override {
     super._burn(tokenId);

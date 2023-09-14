@@ -1,3 +1,14 @@
+@openzeppelin/contracts-upgradeable/=lib/zora/lib/openzeppelin-contracts-upgradeable/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@zoralabs/=lib/zora/node_modules/@zoralabs/protocol-rewards/src/
+@zoralabs/protocol-rewards/=lib/zora/node_modules/@zoralabs/protocol-rewards/
+ERC721A-Upgradeable/=lib/zora/lib/ERC721A-Upgradeable/contracts/
+base64/=lib/zora/lib/base64/
+ds-test/=lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
+erc721a-upgradeable/=lib/zora/lib/ERC721A-Upgradeable/contracts/
+forge-std/=lib/forge-std/src/
+openzeppelin-contracts-upgradeable/=lib/zora/lib/openzeppelin-contracts-upgradeable/
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 solady/=lib/solady/
-zora-721-contracts/=lib/zora-721-contracts/src/
+zora/=lib/zora/
