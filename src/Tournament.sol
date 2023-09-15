@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.20;
 
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -25,7 +25,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   uint256 private _duelId;
   uint256 private _reignId;
 
-  //ZoraNFTCreatorV1 public immutable zoraNftCreator;  
+  ZoraNFTCreatorV1 public immutable zoraNftCreator;  
   TournamentPrizes private _tournamentPrizes;
   TournamentBetSystem private _tournamentBetSystem;
 
@@ -42,9 +42,14 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   mapping(uint256 duelId => mapping(uint256 reignId => Duel)) private _duels;
 
 
-  constructor(TournamentPrizes tournamentPrizes, TournamentBetSystem tournamentBetSystem) ERC721("TOURNAMENT", "TOURNAMENT") Ownable() {
+  constructor(
+    TournamentPrizes tournamentPrizes, 
+    TournamentBetSystem tournamentBetSystem,
+    ZoraNFTCreatorV1 nftCreator
+  ) ERC721("TOURNAMENT", "TOURNAMENT") Ownable() {
     _tournamentPrizes = tournamentPrizes;
     _tournamentBetSystem = tournamentBetSystem;
+    zoraNftCreator = nftCreator;
   }
 
 
@@ -298,6 +303,14 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     _reigns[_reignId].pointerToKingBio = SSTORE2.write(bytes(bio));
 
     emit UpdatedKingBio();
+  }
+
+  function addMinister(address minister) external onlyKing {
+    if (minister == address(0)) revert MinisterCannotBeZeroError();
+
+    _reigns[reignId].minister[address] = true;
+
+    emit AddedMinister({ minister: minister }); 
   }
 
   function cutDuelistHead(address duelist) external onlyKing {

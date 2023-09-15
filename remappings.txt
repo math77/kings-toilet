@@ -1,6 +1,5 @@
 @openzeppelin/contracts-upgradeable/=lib/zora/lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
-@zoralabs/=lib/zora/node_modules/@zoralabs/protocol-rewards/src/
 @zoralabs/protocol-rewards/=lib/zora/node_modules/@zoralabs/protocol-rewards/
 ERC721A-Upgradeable/=lib/zora/lib/ERC721A-Upgradeable/contracts/
 base64/=lib/zora/lib/base64/

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.20;
 
 
 interface ITournament {
@@ -24,7 +24,6 @@ interface ITournament {
     address successorAddr;
     address pointerToKingBio;
     address winner;
-    address[4] ministers;
     uint64 reignStart;
     uint64 reignEnd;
     uint64 entryDeadline;
@@ -34,6 +33,7 @@ interface ITournament {
     uint64 amountGuillotined;
     uint64 amountContests;
     uint96 currentTreasure;
+    mapping(address => bool) ministers;
   }
   
   struct Contest {
@@ -116,7 +116,19 @@ interface ITournament {
     uint256 duelId
   );
 
+  event AddedMinister(
+    address minister
+  );
+
+  event RemovedMinister(
+    address minister
+  );
+
   event UpdatedKingBio();
+
+  error MinisterCannotBeZeroError();
+
+  error MinisterCannotBeDuelistError();
 
   error WrongPriceError();
 
@@ -176,6 +188,8 @@ interface ITournament {
   function updateKingBio(
     string calldata bio
   ) external;
+
+  function addMinister(address minister) external;
 
   function askForDuel(
     address challenged,
