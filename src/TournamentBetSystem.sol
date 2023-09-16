@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.17;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
@@ -18,7 +18,7 @@ contract TournamentBetSystem is Ownable {
 
   uint256 private _balance;
 
-  mapping(uint256 betId => ITournament.Bet bet) private _bets;
+  mapping(uint256 => ITournament.Bet) private _bets;
 
   event UpdatedTournamentContract();
   event ProfitWithdrawn();

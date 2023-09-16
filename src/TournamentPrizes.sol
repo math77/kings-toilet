@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.17;
 
 import {ERC1155} from "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -14,7 +14,7 @@ contract TournamentPrizes is ERC1155, Ownable {
 
   Tournament private _tournamentContract;
 
-  mapping(uint256  tokenId => string uri) private _uris;
+  mapping(uint256 => string) private _uris;
 
 
   event CreatedPrizes(uint256 weekPrizeId, uint256 duelPrizeId); 

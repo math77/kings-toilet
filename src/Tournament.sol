@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.17;
 
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 import {ERC721Drop} from "zora/src/ERC721Drop.sol";
 import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
@@ -32,14 +32,20 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   uint256 private constant DUEL_MIN_BEAT = 0.006 ether;
   uint256 private constant DUELIST_REGISTER_FEE = 0.008 ether;
 
-  mapping(uint256 tokenId => string uri) private _tokenURIs;
+  mapping(uint256 => string) private _tokenURIs;
   
   mapping(address => Duelist) private _duelists;
   mapping(address => bool) private _isDuelist;
-  mapping(uint256 contestId => Contest) private _contests;
-  mapping(uint256 reignId => Reign) private _reigns;
+  //contestId =>
+  mapping(uint256 => Contest) private _contests;
+  //reignId => 
+  mapping(uint256 => Reign) private _reigns;
 
-  mapping(uint256 duelId => mapping(uint256 reignId => Duel)) private _duels;
+  //reignId => user address => is minister?
+  mapping(uint256 => mapping(address => bool)) _reignMinisters;
+
+  //duelId => reignId
+  mapping(uint256 => mapping(uint256 => Duel)) private _duels;
 
 
   constructor(
@@ -308,7 +314,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function addMinister(address minister) external onlyKing {
     if (minister == address(0)) revert MinisterCannotBeZeroError();
 
-    _reigns[reignId].minister[address] = true;
+    _reignMinisters[_reignId][minister] = true;
 
     emit AddedMinister({ minister: minister }); 
   }

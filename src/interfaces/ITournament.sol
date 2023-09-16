@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.17;
 
 
 interface ITournament {
@@ -33,7 +33,6 @@ interface ITournament {
     uint64 amountGuillotined;
     uint64 amountContests;
     uint96 currentTreasure;
-    mapping(address => bool) ministers;
   }
   
   struct Contest {
