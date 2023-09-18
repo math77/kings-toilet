@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
 
 interface ITournament {
 
@@ -20,8 +21,8 @@ interface ITournament {
 
   struct Reign {
     string name;
-    address kingAddr;
-    address successorAddr;
+    address kingAddress;
+    address successorAddress;
     address pointerToKingBio;
     address winner;
     uint64 reignStart;
@@ -36,6 +37,7 @@ interface ITournament {
   }
   
   struct Contest {
+    string name;
     string description;
     uint256 reignId;
   }
@@ -64,6 +66,7 @@ interface ITournament {
     uint96 challengerTotalBetted;
     uint96 challengedTotalBetted;
     address winnerDuelist;
+    IERC721Drop winnerDrop;
     Winner winner;
     DuelStage duelStage;
   }
@@ -137,6 +140,8 @@ interface ITournament {
 
   error NotTheKingError();
 
+  error NotTheKingOrMinisterError();
+
   error NotADuelistError();
 
   error InvalidDuelError();
@@ -205,6 +210,7 @@ interface ITournament {
   ) payable external;
 
   function createContest(
+    string calldata name,
     string calldata description
   ) external;
 
