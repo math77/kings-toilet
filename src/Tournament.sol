@@ -33,7 +33,8 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   uint256 private constant DUEL_MIN_BEAT = 0.006 ether;
   uint256 private constant DUELIST_REGISTER_FEE = 0.008 ether;
 
-  mapping(uint256 => string) private _tokenURIs;
+  //tokenId
+  mapping(uint256 => TokenURIs) private _tokenURIs;
   
   mapping(address => Duelist) private _duelists;
   mapping(address => bool) private _isDuelist;
@@ -111,9 +112,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
 
     After the reign current time is over the week prize is available to claim
-    check if the claimer is the folk most win
-    in case of tie, check number of veggies
-    in case of remain tie, check number of defeats (least win)
 
   */
 
@@ -212,7 +210,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function createContest(string calldata name, string calldata description) external onlyKingOrMinisters {
     _contests[++_contestId] = Contest({
       name: name,
-      description: description,
+      description: description, // save with sstore too?
       reignId: _reignId
     });
 
@@ -245,15 +243,15 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     }
 
 
-    uint256 winTokenId;
+    uint256 winnerTokenId;
     uint256 loserTokenId;
 
     if (winner == duel.challenger) {
-      winTokenId = duel.challengerEntryId;
+      winnerTokenId = duel.challengerEntryId;
       loserTokenId = duel.challengedEntryId;
     } else {
       loserTokenId = duel.challengerEntryId;
-      winTokenId = duel.challengedEntryId;
+      winnerTokenId = duel.challengedEntryId;
     }
 
     _duelists[winner].dueling = false;
@@ -261,7 +259,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     //reclaim nft for the king
     
-    _transfer(winner, _reigns[_reignId].king.kingAddress, winTokenId);
+    _transfer(winner, _reigns[_reignId].king.kingAddress, winnerTokenId);
 
     //send loser for the toilet
     _burn(loserTokenId);
@@ -269,7 +267,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     //call another contract to mint medal nft
     _tournamentPrizes.mint(winner, _tournamentPrizes.currentTokenId(), 1);
 
-    _createDuelistDrop(winner, duelId);
+    _createDuelistDrop(winner, duelId, _tokenURIs[winnerTokenId].dropUri);
 
     emit PickedDuelWinner({
       winner: winner,
@@ -279,7 +277,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   }
 
-  function createDuelEntry(string calldata uri, uint256 duelId) external payable {
+  function createDuelEntry(
+    string calldata uri,
+    string calldata dropUri, 
+    uint256 duelId
+  ) external payable {
 
     if (block.timestamp > _reigns[_reignId].entryDeadline) revert EntryDeadlineExpiredError();
 
@@ -288,9 +290,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
     if (duel.duelStage == DuelStage.Declined) revert DuelDeclinedError();
     if (duel.duelStage == DuelStage.AwaitingResponse) revert DuelAwaitingResponseError();
-    
 
-    _tokenURIs[++_tokenId] = uri;
+    _tokenURIs[++_tokenId] = TokenURIs({
+      metadataUri: uri,
+      dropUri: dropUri
+    });
 
     if (msg.sender == duel.challenger) {
       duel.challengerEntryId = _tokenId;
@@ -315,9 +319,13 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     });
   }
 
-  function updateKingBio(string calldata bio) external onlyKing {
+  function updateKingNameAndBio(
+    string calldata name,
+    bytes calldata bio
+  ) external onlyKing {
 
-    _reigns[_reignId].king.biography = SSTORE2.write(bytes(bio));
+    _reigns[_reignId].king.name = name;
+    _reigns[_reignId].king.biography = SSTORE2.write(bio);
 
     emit UpdatedKingBio();
   }
@@ -466,7 +474,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function tokenURI(uint256 tokenId) public view override returns (string memory) {
     _requireMinted(tokenId);
 
-    string memory _tokenURI = _tokenURIs[tokenId];
+    string memory _tokenURI = _tokenURIs[tokenId].metadataUri;
     string memory base = _baseURI();
 
     // If there is no base URI, return the token URI.
@@ -492,7 +500,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     return _reignMinisters[reignId][user];
   }
   
-  function _createDuelistDrop(address duelist, uint256 duelId) internal {
+  function _createDuelistDrop(address duelist, uint256 duelId, string memory dropUri) internal {
 
     (
       string memory name,
@@ -520,7 +528,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           }),
           description: description,
           animationURI: "",
-          imageURI: "", // ????
+          imageURI: dropUri, // ????
           createReferral: address(this)
         })
       )
@@ -570,7 +578,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function _burn(uint256 tokenId) internal virtual override {
     super._burn(tokenId);
 
-    if (bytes(_tokenURIs[tokenId]).length != 0) {
+    if (bytes(_tokenURIs[tokenId].metadataUri).length != 0) {
       delete _tokenURIs[tokenId];
     }
   }

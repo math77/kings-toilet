@@ -94,6 +94,11 @@ interface ITournament {
     uint96 betAmount;
   }
 
+  struct TokenURIs {
+    string metadataUri;
+    string dropUri;
+  }
+
   /* EVENTS */
 
   event CreatedDethroneProposal(
@@ -224,8 +229,9 @@ interface ITournament {
 
   function duelistRegister(string calldata name) external payable;
 
-  function updateKingBio(
-    string calldata bio
+  function updateKingNameAndBio(
+    string calldata name,
+    bytes calldata bio
   ) external;
 
   function addMinister(address minister) external;
@@ -243,6 +249,7 @@ interface ITournament {
 
   function createDuelEntry(
     string calldata uri,
+    string calldata dropUri,
     uint256 duelId
   ) payable external;
 
