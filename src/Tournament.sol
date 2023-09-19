@@ -32,6 +32,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   uint256 private constant DUEL_MIN_BEAT = 0.006 ether;
   uint256 private constant DUELIST_REGISTER_FEE = 0.008 ether;
+  uint256 private constant DETHRONE_VOTE_FEE = 0.00003 ether;
 
   //tokenId
   mapping(uint256 => TokenURIs) private _tokenURIs;
@@ -399,14 +400,17 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     2 - flowers (keep the king)
 
     $1 -> 10 tomatoes or flowers
+
+    amountOfVotes -> amount in batch (*) of 10
   */
   function voteOnDethroneProposal(uint256 dethroneProposalId, uint64 amountVotes, uint256 voteType) external payable {
     if (voteType == 0 || voteType > 2) revert InvalidDeposeVoteError();
+    if (msg.value * amountVotes != DETHRONE_VOTE_FEE) revert WrongPriceError();
 
     if (voteType == 1) {
-      _dethroneProposals[dethroneProposalId].tomatoes += amountVotes;
+      _dethroneProposals[dethroneProposalId].tomatoes += amountVotes * 10;
     } else {
-      _dethroneProposals[dethroneProposalId].flowers += amountVotes;
+      _dethroneProposals[dethroneProposalId].flowers += amountVotes * 10;
     }
 
   }

@@ -13,10 +13,9 @@ import "forge-std/console.sol";
 contract TournamentBetSystem is Ownable {
 
   uint256 private _betId;
+  uint256 private _balance;
 
   Tournament private _tournamentContract;
-
-  uint256 private _balance;
 
   mapping(uint256 => ITournament.Bet) private _bets;
 
@@ -33,7 +32,6 @@ contract TournamentBetSystem is Ownable {
     if(msg.sender != address(_tournamentContract)) revert CallerNotTournamentContractError();
     _; 
   }
-  
 
   constructor() {}
 
