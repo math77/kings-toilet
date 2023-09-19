@@ -219,11 +219,13 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     emit CreatedContest({contestId: _contestId});
   }
 
-  function pickDuelWinner(uint256 duelId, address winner) external onlyKingOrMinisters {
+  //the current king can judge others kingdoms not judged submissions
+  function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external onlyKingOrMinisters {
     if (!_isDuelist[winner]) revert NotADuelistError();
     if (duelId == 0 || duelId > _duelId) revert InvalidDuelError();
+    if (reignId == 0 || reignId > _reignId) revert InvalidReignError();
 
-    Duel storage duel = _duels[_reignId][duelId];
+    Duel storage duel = _duels[reignId][duelId];
 
     if (duel.duelStage != DuelStage.AwaitingJudgment) revert NotTimeOfPickWinnerError();
 
@@ -238,8 +240,8 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
       _duelists[winner].totalDuelWins += 1;
       _duelists[loser].totalDuelDefeats += 1;
-      _reigns[_reignId].amountWins += 1;
-      _reigns[_reignId].amountDuels += 1;
+      _reigns[reignId].amountWins += 1;
+      _reigns[reignId].amountDuels += 1;
     }
 
 
@@ -258,7 +260,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     _duelists[loser].dueling = false;
 
     //reclaim nft for the king
-    
+    //the current king gets the NFT
     _transfer(winner, _reigns[_reignId].king.kingAddress, winnerTokenId);
 
     //send loser for the toilet

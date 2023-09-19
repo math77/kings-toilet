@@ -186,6 +186,8 @@ interface ITournament {
 
   error InvalidDuelError();
 
+  error InvalidReignError();
+
   error InvalidContestError();
 
   error HeadGuillotinedError();
@@ -260,7 +262,7 @@ interface ITournament {
 
   function crownTheKing(string calldata kingName) external;
 
-  function pickDuelWinner(uint256 duelId, address winner) external;
+  function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external;
 
   function cutDuelistHead(address duelist) external;
 
