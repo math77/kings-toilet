@@ -24,6 +24,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   uint256 private _contestId;
   uint256 private _duelId;
   uint256 private _reignId;
+  uint256 private _dethroneId;
 
   ZoraNFTCreatorV1 public immutable zoraNftCreator;  
   TournamentPrizes private _tournamentPrizes;
@@ -47,6 +48,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   //reignId => duelId
   mapping(uint256 => mapping(uint256 => Duel)) private _duels;
 
+  //dethroneId
+  mapping(uint256 => Dethrone) private _dethroneProposals;
+
   constructor(
     TournamentPrizes tournamentPrizes, 
     TournamentBetSystem tournamentBetSystem,
@@ -59,7 +63,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   
 
   modifier onlyKing() { 
-    if(msg.sender != _reigns[_reignId].kingAddress) revert NotTheKingError(); 
+    if(msg.sender != _reigns[_reignId].king.kingAddress) revert NotTheKingError(); 
     _; 
   }
 
@@ -70,7 +74,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   modifier onlyKingOrMinisters() { 
     if (
-      msg.sender != _reigns[_reignId].kingAddress &&
+      msg.sender != _reigns[_reignId].king.kingAddress &&
       !_reignMinisters[_reignId][msg.sender]
     ) revert NotTheKingOrMinisterError(); 
     _; 
@@ -178,7 +182,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     uint64 reignEnd = _reigns[_reignId].reignEnd;
 
     if (block.timestamp < reignEnd) revert NotTimeForNewKingError();
-    if (msg.sender == _reigns[_reignId].kingAddress) revert CannotCrownYourselfError();
+    if (msg.sender == _reigns[_reignId].king.kingAddress) revert CannotCrownYourselfError();
 
     //24hours and has successor
     address successor = _reigns[_reignId].successorAddress;
@@ -188,8 +192,8 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     }
 
     Reign memory reign;
-    reign.name = kingName;
-    reign.kingAddress = msg.sender;
+    reign.king.name = kingName;
+    reign.king.kingAddress = msg.sender;
     reign.reignStart = uint64(block.timestamp);
     reign.reignEnd = uint64(block.timestamp + 7 days);
     reign.entryDeadline = uint64(block.timestamp + 5 days);
@@ -257,7 +261,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     //reclaim nft for the king
     
-    _transfer(winner, _reigns[_reignId].kingAddress, winTokenId);
+    _transfer(winner, _reigns[_reignId].king.kingAddress, winTokenId);
 
     //send loser for the toilet
     _burn(loserTokenId);
@@ -265,8 +269,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     //call another contract to mint medal nft
     _tournamentPrizes.mint(winner, _tournamentPrizes.currentTokenId(), 1);
 
+    _createDuelistDrop(winner, duelId);
+
     emit PickedDuelWinner({
       winner: winner,
+      judgedBy: msg.sender,
       duelId: duelId
     });
 
@@ -310,22 +317,39 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   function updateKingBio(string calldata bio) external onlyKing {
 
-    _reigns[_reignId].pointerToKingBio = SSTORE2.write(bytes(bio));
+    _reigns[_reignId].king.biography = SSTORE2.write(bytes(bio));
 
     emit UpdatedKingBio();
   }
 
+  function pickSuccessor(address successor) external onlyKing {
+    if (successor == address(0)) revert AddressCannotBeZeroError();
+    if (successor == _reigns[_reignId].king.kingAddress) revert CannotCrownYourselfError();
+
+    _reigns[_reignId].successorAddress = successor;
+
+    emit PickedSuccessor({
+      reignId: _reignId,
+      successor: successor
+    });
+  }
+
   function addMinister(address minister) external onlyKing {
-    if (minister == address(0)) revert MinisterCannotBeZeroError();
+    if (minister == address(0)) revert AddressCannotBeZeroError();
 
     _reignMinisters[_reignId][minister] = true;
 
     emit AddedMinister({ minister: minister }); 
   }
 
+  function removeMinister(address minister) external onlyKing {
+    delete _reignMinisters[_reignId][minister];
+
+    emit RemovedMinister({minister: minister});
+  }
+
   function cutDuelistHead(address duelist) external onlyKing {
 
-    //check if duelist is in a duel????
     if (!_isDuelist[duelist]) revert NotADuelistError();
     if (_duelists[duelist].dueling) revert CurrentlyDuelingError();
     if (_duelists[duelist].guillotined) revert HeadGuillotinedError();
@@ -339,14 +363,45 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     emit CuttedDuelistHead();
   }
 
-  //replace that for an event emitted?
-  function throwVeggies(address duelist, uint256 amount) external {
-    Duelist storage d = _duelists[duelist];
+  function dethroneKingProposal(address newKing) external {
+    if (newKing == address(0)) revert AddressCannotBeZeroError();
+    if (_dethroneProposals[_dethroneId].trialActive) revert ExistAnActiveDethroneTrialError();
 
-    if (d.guillotined) revert HeadGuillotinedError();
+    _dethroneProposals[++_dethroneId] = Dethrone({
+      king: _reigns[_reignId].king,
+      tomatoes: 0,
+      flowers: 0,
+      trialStart: uint64(block.timestamp),
+      trialEnd: uint64(block.timestamp + 12 hours),
+      proposer: msg.sender,
+      newKing: newKing,
+      trialActive: true
+    });
 
-    d.veggies += amount;
+    emit CreatedDethroneProposal({
+      proposalId: _dethroneId,
+      proposer: msg.sender,
+      kingToDethrone: _reigns[_reignId].king.kingAddress
+    });
   }
+  /*
+    1 - tomatoes (dethrone the king)
+    2 - flowers (keep the king)
+
+    $1 -> 10 tomatoes or flowers
+  */
+  function voteOnDethroneProposal(uint256 dethroneProposalId, uint64 amountVotes, uint256 voteType) external payable {
+    if (voteType == 0 || voteType > 2) revert InvalidDeposeVoteError();
+
+    if (voteType == 1) {
+      _dethroneProposals[dethroneProposalId].tomatoes += amountVotes;
+    } else {
+      _dethroneProposals[dethroneProposalId].flowers += amountVotes;
+    }
+
+  }
+
+  //function finishDethroneProposal(uint256 dethroneProposalId) external {}
 
   function betOnDuel(uint256 duelId, address bettingOn) external payable {
     Duel storage duel = _duels[_reignId][duelId];
@@ -430,20 +485,20 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   }
 
   function isKing(address user) public view returns (bool) {
-    return user == _reigns[_reignId].kingAddress;
+    return user == _reigns[_reignId].king.kingAddress;
   }
 
   function isMinister(address user, uint256 reignId) public view returns (bool) {
     return _reignMinisters[reignId][user];
   }
   
-  function createDuelistDrop(address duelist, uint256 duelId) internal {
+  function _createDuelistDrop(address duelist, uint256 duelId) internal {
 
     (
       string memory name,
       string memory symbol,
       string memory description
-    ) = createDropAttributes(duelId);
+    ) = _createDropAttributes(duelId);
 
     ERC721Drop drop = ERC721Drop(
       payable(
@@ -474,7 +529,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     _duels[_reignId][duelId].winnerDrop = drop;
   }
 
-  function createDropAttributes(uint256 duelId) internal view returns (string memory name, string memory symbol, string memory description) {
+  function _createDropAttributes(uint256 duelId) internal view returns (string memory name, string memory symbol, string memory description) {
     Duel memory duel = _duels[_reignId][duelId];
 
     uint256 winningEntry = duel.winnerDuelist == duel.challenger ? duel.challengerEntryId : duel.challengedEntryId;
@@ -532,7 +587,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     uint256 /*batchSize*/
   ) internal virtual override {
 
-    if (from != address(0) && (to != address(0) && to != _reigns[_reignId].kingAddress)) {
+    if (from != address(0) && (to != address(0) && to != _reigns[_reignId].king.kingAddress)) {
       revert CannotTransferError();
     }
   }

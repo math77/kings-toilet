@@ -19,11 +19,26 @@ interface ITournament {
     Challenged
   }
 
-  struct Reign {
+  struct King {
     string name;
     address kingAddress;
+    address biography;
+  }
+
+  struct Dethrone {
+    King king;
+    uint64 tomatoes; // for dethrone
+    uint64 flowers; // against dethrone
+    uint64 trialStart;
+    uint64 trialEnd;
+    address proposer;
+    address newKing;
+    bool trialActive;
+  }
+
+  struct Reign {
+    King king;
     address successorAddress;
-    address pointerToKingBio;
     address winner;
     uint64 reignStart;
     uint64 reignEnd;
@@ -79,6 +94,14 @@ interface ITournament {
     uint96 betAmount;
   }
 
+  /* EVENTS */
+
+  event CreatedDethroneProposal(
+    uint256 indexed proposalId,
+    address indexed proposer,
+    address indexed kingToDethrone
+  ); 
+
   event RegisteredDuelist();
 
   event CreatedAskForDuel(
@@ -92,6 +115,11 @@ interface ITournament {
     uint256 duelId
   );
 
+  event PickedSuccessor(
+    uint256 indexed reignId,
+    address indexed successor
+  );
+
   event CreatedDuelEntry(
     address duelist,
     uint256 duelId,
@@ -100,6 +128,7 @@ interface ITournament {
 
   event PickedDuelWinner(
     address winner,
+    address judgedBy,
     uint256 duelId
   );
   
@@ -128,7 +157,13 @@ interface ITournament {
 
   event UpdatedKingBio();
 
-  error MinisterCannotBeZeroError();
+  /* ERRORS */
+
+  error InvalidDeposeVoteError();
+
+  error ExistAnActiveDethroneTrialError();
+
+  error AddressCannotBeZeroError();
 
   error MinisterCannotBeDuelistError();
 
@@ -195,6 +230,8 @@ interface ITournament {
 
   function addMinister(address minister) external;
 
+  function removeMinister(address minister) external;
+
   function askForDuel(
     address challenged,
     uint256 contestId
@@ -230,7 +267,11 @@ interface ITournament {
     uint256 betId
   ) external;
 
-  function throwVeggies(address duelist, uint256 amount) external;
+  function dethroneKingProposal(address newKing) external;
+
+  function voteOnDethroneProposal(uint256 dethroneProposalId, uint64 amountVotes, uint256 voteType) external payable;
+
+  //function finishDethroneProposal() external;
 
   function currentReignId() external view returns (uint256);
 
