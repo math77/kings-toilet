@@ -7,10 +7,6 @@ Duel, Please the King, Win... and may become the next King?!
 
 [![](https://img.shields.io/badge/Incubated_by-100.builders-9146ff?logo=gamejolt&logoColor=white&labelColor=464646&style=for-the-badge)](https://app.100.builders/directory)
 
-## First, bat-signal!
-
-I'm looking for a sponsorship of 3 ETH so that I can buy a new laptop/setup (the current one is very old and limits me a bit) and also go full-time on this project and on crypto in general.
-
 
 ## What's it?
 
