@@ -1,33 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+
+import {Initializable} from "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {ProtocolRewards} from "@zoralabs/protocol-rewards/src/ProtocolRewards.sol";
 
-//
-contract DuelistDropFunds {
+import {IDuelistDropFunds} from "./interfaces/IDuelistDropFunds.sol";
 
-  address private immutable KING_ADDRESS;
-  address private immutable DUELIST_ADDRESS;
+//
+contract DuelistDropFunds is Initializable, IDuelistDropFunds {
+
+  address public kingAddress;
+  address public duelistAddress;
 
 
   ProtocolRewards public rewardsContract;
 
-
-  error WithdrawNotAllowed();
-  error YouArePoorSorry();
-
   receive() external payable {}
   fallback() external payable {}
-
-  constructor() {}
-
   
 
   modifier isAllowed() { 
-    if (msg.sender != KING_ADDRESS && msg.sender != DUELIST_ADDRESS) {
+    if (msg.sender != kingAddress && msg.sender != duelistAddress) {
       revert WithdrawNotAllowed();
     }
     _; 
+  }
+
+  function initialize(address _kingAddress, address _duelistAddress) external initializer {
+    kingAddress = _kingAddress;
+    duelistAddress = _duelistAddress;
+    rewardsContract = ProtocolRewards(0x7777777F279eba3d3Ad8F4E708545291A6fDBA8B);
   }
 
   function withdrawFunds() external isAllowed {
@@ -38,8 +41,8 @@ contract DuelistDropFunds {
     }
 
     uint256 amountToWithdraw;
-    if (msg.sender == KING_ADDRESS) {
-      amountToWithdraw = (amountAvailable / 100 ) * 10;
+    if (msg.sender == kingAddress) {
+      amountToWithdraw = (amountAvailable / 100) * 10;
     } else {
       amountToWithdraw = (amountAvailable / 100) * 90;
     }
