@@ -15,6 +15,8 @@ import {LibString} from "solady/src/utils/LibString.sol";
 import {TournamentPrizes} from "./TournamentPrizes.sol";
 import {TournamentBetSystem} from "./TournamentBetSystem.sol";
 
+import {DuelistDropFundsFactory} from "./DuelistDropFundsFactory.sol";
+
 import {ITournament} from "./interfaces/ITournament.sol";
 
 
@@ -29,10 +31,14 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   ZoraNFTCreatorV1 public immutable zoraNftCreator;  
   TournamentPrizes private _tournamentPrizes;
   TournamentBetSystem private _tournamentBetSystem;
+  DuelistDropFundsFactory private _dropFundsFactory;
 
   uint256 private constant DUEL_MIN_BEAT = 0.006 ether;
-  uint256 private constant DUELIST_REGISTER_FEE = 0.008 ether;
+  uint256 private constant DUELIST_REGISTER_FEE = 0.008 ether; //?????
   uint256 private constant DETHRONE_VOTE_FEE = 0.00003 ether;
+
+  uint256 public openEditionPrice;
+  uint256 public maxAmountContestsByReign = 3;
 
   //tokenId
   mapping(uint256 => TokenURIs) private _tokenURIs;
@@ -40,7 +46,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   mapping(address => Duelist) private _duelists;
   mapping(address => bool) private _isDuelist;
   //contestId =>
-  mapping(uint256 => Contest) private _contests;
+  //mapping(uint256 => Contest) private _contests;
+
+  mapping(uint256 => mapping(uint256 => Contest)) private _contests;
   //reignId => 
   mapping(uint256 => Reign) private _reigns;
 
@@ -53,13 +61,18 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   //dethroneId
   mapping(uint256 => Dethrone) private _dethroneProposals;
 
+  receive() external payable {}
+  fallback() external payable {}
+
   constructor(
     TournamentPrizes tournamentPrizes, 
     TournamentBetSystem tournamentBetSystem,
+    DuelistDropFundsFactory dropFundsFactory,
     ZoraNFTCreatorV1 nftCreator
   ) ERC721("TOURNAMENT", "TOURNAMENT") Ownable() {
     _tournamentPrizes = tournamentPrizes;
     _tournamentBetSystem = tournamentBetSystem;
+    _dropFundsFactory = dropFundsFactory;
     zoraNftCreator = nftCreator;
   }
   
@@ -82,8 +95,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     _; 
   }
   
-  
-  
+  //now are parties (partyDAO)
   function duelistRegister(string calldata duelistName) external payable isTheKing(msg.sender) {
     if (_isDuelist[msg.sender]) revert AlreadyRegisteredAsDuelistError();
     if (_duelists[msg.sender].guillotined) revert HeadGuillotinedError();
@@ -129,6 +141,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     if (_duelists[msg.sender].guillotined || _duelists[challenged].guillotined) revert HeadGuillotinedError();
 
     if (block.timestamp > _reigns[_reignId].entryDeadline) revert AskForDuelTimeExpiredError();
+    if (_contests[_reignId][contestId].reignId != _reignId) revert InvalidContestError(); 
 
 
     Duel memory duel;
@@ -207,9 +220,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       newKing: msg.sender
     });
   }
-
+  
   function createContest(string calldata name, string calldata description) external onlyKingOrMinisters {
-    _contests[++_contestId] = Contest({
+    if (_reigns[_reignId].amountContests == maxAmountContestsByReign) revert MaxAmountOfContestsReachedError();
+
+    _contests[_reignId][++_contestId] = Contest({
       name: name,
       description: description, // save with sstore too?
       reignId: _reignId
@@ -336,6 +351,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function pickSuccessor(address successor) external onlyKing {
     if (successor == address(0)) revert AddressCannotBeZeroError();
     if (successor == _reigns[_reignId].king.kingAddress) revert CannotCrownYourselfError();
+    //if (_isDuelist[successor])
 
     _reigns[_reignId].successorAddress = successor;
 
@@ -359,6 +375,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     emit RemovedMinister({minister: minister});
   }
 
+  /// THIS STILL MAKES SENSE NOW THAT THE DUELISTS ARE PARTIES? think about that later
   function cutDuelistHead(address duelist) external onlyKing {
 
     if (!_isDuelist[duelist]) revert NotADuelistError();
@@ -375,6 +392,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   }
 
   function dethroneKingProposal(address newKing) external {
+    if (block.timestamp > _reigns[_reignId].entryDeadline) revert CannotMakeDethroneProposalError();
     if (newKing == address(0)) revert AddressCannotBeZeroError();
     if (_dethroneProposals[_dethroneId].trialActive) revert ExistAnActiveDethroneTrialError();
 
@@ -414,8 +432,17 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     }
 
   }
+  /*
+    
+    replace the successor or the current king?
 
-  //function finishDethroneProposal(uint256 dethroneProposalId) external {}
+  */
+  function finishDethroneProposal(uint256 dethroneProposalId) external {
+    Dethrone storage dethrone = _dethroneProposals[dethroneProposalId];
+
+    if (dethrone.trialEnd > block.timestamp) revert DethroneProposalVotePeriodOpenError();
+    if (dethrone.trialActive) revert DethroneProposalFinishedError();
+  }
 
   function betOnDuel(uint256 duelId, address bettingOn) external payable {
     Duel storage duel = _duels[_reignId][duelId];
@@ -469,8 +496,8 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     return _duelists[duelist];
   }
 
-  function contestDetails(uint256 contestId) external view returns (Contest memory) {
-    return _contests[contestId];
+  function contestDetails(uint256 reignId, uint256 contestId) external view returns (Contest memory) {
+    return _contests[reignId][contestId];
   }
 
   function reignDetails(uint256 reignId) external view returns (Reign memory) {
@@ -514,6 +541,14 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       string memory description
     ) = _createDropAttributes(duelId);
 
+    //deploy funds contract
+
+    address fundsAddress = _dropFundsFactory.deployDuelistDropFunds(
+      _reigns[_reignId].king.kingAddress,
+      duelist
+    );
+
+
     ERC721Drop drop = ERC721Drop(
       payable(
         zoraNftCreator.createEditionWithReferral({
@@ -521,10 +556,10 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           symbol: symbol,
           editionSize: type(uint64).max,
           royaltyBPS: 0,
-          fundsRecipient: payable(duelist),
+          fundsRecipient: payable(fundsAddress), //CHANGE FOR A DEPLOYED FUNDS CONTRACT SPECIFIC FOR THIS DUEL (implementation)
           defaultAdmin: address(this),
           saleConfig: IERC721Drop.SalesConfiguration({
-            publicSalePrice: 0,
+            publicSalePrice: uint104(openEditionPrice),
             maxSalePurchasePerAddress: type(uint32).max,
             publicSaleStart: uint64(block.timestamp),
             publicSaleEnd: uint64(block.timestamp +  3 days),
@@ -535,7 +570,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           description: description,
           animationURI: "",
           imageURI: dropUri, // ????
-          createReferral: address(this)
+          createReferral: address(this) //put my own addres
         })
       )
     );
@@ -572,7 +607,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
         " challenged duelist ",
         _duelists[duel.challenged].name,
         " to a duel in the contest: ",
-        _contests[duel.contestId].name,
+        _contests[_reignId][duel.contestId].name,
         ". The duelist ",
         _duelists[duel.winnerDuelist].name,
         " won with submission number #",

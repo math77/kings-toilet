@@ -33,10 +33,10 @@ contract TournamentBetSystem is Ownable {
     _; 
   }
 
-  constructor() {}
-
   receive() external payable {}
   fallback() external payable {}
+
+  constructor() {}
 
 
   function storeBet(uint256 duelId, uint256 reignId, address bettingOn, address owner) external payable onlyTournament {

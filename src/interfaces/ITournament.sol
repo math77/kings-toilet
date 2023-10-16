@@ -168,6 +168,12 @@ interface ITournament {
 
   error ExistAnActiveDethroneTrialError();
 
+  error CannotMakeDethroneProposalError();
+
+  error DethroneProposalFinishedError();
+
+  error DethroneProposalVotePeriodOpenError();
+
   error AddressCannotBeZeroError();
 
   error MinisterCannotBeDuelistError();
@@ -228,6 +234,8 @@ interface ITournament {
 
   error CannotCancelBetError();
 
+  error MaxAmountOfContestsReachedError();
+
 
   function duelistRegister(string calldata name) external payable;
 
@@ -280,7 +288,7 @@ interface ITournament {
 
   function voteOnDethroneProposal(uint256 dethroneProposalId, uint64 amountVotes, uint256 voteType) external payable;
 
-  //function finishDethroneProposal() external;
+  function finishDethroneProposal(uint256 dethroneProposalId) external;
 
   function currentReignId() external view returns (uint256);
 
@@ -288,7 +296,7 @@ interface ITournament {
 
   function duelistDetails(address duelist) external view returns (Duelist memory);
 
-  function contestDetails(uint256 contestId) external view returns (Contest memory);
+  function contestDetails(uint256 reignId, uint256 contestId) external view returns (Contest memory);
 
   function reignDetails(uint256 reignId) external view returns (Reign memory);
 
