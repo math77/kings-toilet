@@ -6,23 +6,20 @@ import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
 interface ITournament {
 
   enum DuelStage {
-    AwaitingResponse,
+    AwaitingSubmissions,
     AwaitingJudgment,
-    Declined,
-    Accepted,
     Finished
   }
 
   enum Winner {
     Undefined,
-    Challenger,
-    Challenged
+    FirstDuelist,
+    SecondDuelist
   }
 
   struct King {
     string name;
     address kingAddress;
-    address biography;
   }
 
   struct Dethrone {
@@ -39,47 +36,34 @@ interface ITournament {
   struct Reign {
     King king;
     address successorAddress;
-    address winner;
+    address weekWinner;
     uint64 reignStart;
     uint64 reignEnd;
     uint64 entryDeadline;
-    uint64 amountCollected;
-    uint64 amountDuels; //finished
-    uint64 amountWins;
-    uint64 amountGuillotined;
-    uint64 amountContests;
-    uint96 currentTreasure;
-  }
-  
-  struct Contest {
-    string name;
-    string description;
-    uint256 reignId;
+    uint64 amountDuels;
   }
 
   struct Duelist {
     string name;
     uint256 totalDuelWins;
-    uint256 duelWinsByWO;
     uint256 totalDuelDefeats;
-    uint256 duelDefeatsByWO;
-    uint256 weeklyWins;
+    uint256 totalWeeklyWins;
     uint256 currentReignWins;
-    uint256 treasure;
     uint256 veggies;
-    bool guillotined;
     bool dueling;
+    bool allowed;
   }
 
   struct Duel {
-    address challenger;
-    address challenged;
-    uint256 contestId;
+    string title;
+    address description; //sstore pointer
+    address firstDuelist;
+    address secondDuelist;
     uint256 betAmount;
-    uint256 challengerEntryId;
-    uint256 challengedEntryId;
-    uint96 challengerTotalBetted;
-    uint96 challengedTotalBetted;
+    uint256 firstDuelistEntryId;
+    uint256 secondDuelistEntryId;
+    uint96 firstDuelistTotalBetted;
+    uint96 secondDuelistTotalBetted;
     address winnerDuelist;
     IERC721Drop winnerDrop;
     Winner winner;
@@ -107,17 +91,11 @@ interface ITournament {
     address indexed kingToDethrone
   ); 
 
-  event RegisteredDuelist();
+  event DuelistAdded(address duelist);
 
-  event CreatedAskForDuel(
-    address indexed challenger,
-    address indexed challenged,
+  event DuelCreated(
     uint256 indexed duelId,
-    uint256 contestId
-  );
-
-  event DuelAccepted(
-    uint256 duelId
+    uint256 indexed reignId
   );
 
   event PickedSuccessor(
@@ -133,14 +111,7 @@ interface ITournament {
 
   event PickedDuelWinner(
     address winner,
-    address judgedBy,
     uint256 duelId
-  );
-  
-  event CuttedDuelistHead();
-
-  event CreatedContest(
-    uint256 indexed contestId
   );
 
   event CrownedNewKing(
@@ -150,14 +121,6 @@ interface ITournament {
 
   event CreatedDuelBet(
     uint256 duelId
-  );
-
-  event AddedMinister(
-    address minister
-  );
-
-  event RemovedMinister(
-    address minister
   );
 
   event UpdatedKingBio();
@@ -176,17 +139,11 @@ interface ITournament {
 
   error AddressCannotBeZeroError();
 
-  error MinisterCannotBeDuelistError();
-
   error WrongPriceError();
-
-  error AlreadyRegisteredAsDuelistError();
 
   error IsTheKingError();
 
   error NotTheKingError();
-
-  error NotTheKingOrMinisterError();
 
   error NotADuelistError();
 
@@ -194,21 +151,9 @@ interface ITournament {
 
   error InvalidReignError();
 
-  error InvalidContestError();
-
-  error HeadGuillotinedError();
-
-  error CurrentlyDuelingError();
-
   error DuelFinishedError();
 
-  error DuelDeclinedError();
-
-  error DuelAwaitingResponseError();
-
-  error DuelNotAcceptedError();
-
-  error NotRegisteredForThisDuelError();
+  error DuelAwaitingJudgementError();
 
   error NotTimeOfPickWinnerError();
 
@@ -220,41 +165,21 @@ interface ITournament {
 
   error NotSuccessorError();
 
-  error AskForDuelTimeExpiredError();
-
-  error AcceptDuelTimeExpiredError();
-
   error EntryDeadlineExpiredError();
 
   error ValueSentLowerThanMinBetError();
-
-  error DuelistNotDuelParticipantError();
 
   error CannotBetError();
 
   error CannotCancelBetError();
 
-  error MaxAmountOfContestsReachedError();
+  error MaxAmountOfDuelsReachedError();
 
 
-  function duelistRegister(string calldata name) external payable;
+  function setDuelists(address[] memory duelists) external;
 
-  function updateKingNameAndBio(
-    string calldata name,
-    bytes calldata bio
-  ) external;
-
-  function addMinister(address minister) external;
-
-  function removeMinister(address minister) external;
-
-  function askForDuel(
-    address challenged,
-    uint256 contestId
-  ) external;
-
-  function acceptDuel(
-    uint256 duelId
+  function updateKingName(
+    string calldata name
   ) external;
 
   function createDuelEntry(
@@ -263,16 +188,14 @@ interface ITournament {
     uint256 duelId
   ) payable external;
 
-  function createContest(
-    string calldata name,
+  function createDuel(
+    string calldata title,
     string calldata description
   ) external;
 
   function crownTheKing(string calldata kingName) external;
 
   function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external;
-
-  function cutDuelistHead(address duelist) external;
 
   function betOnDuel(
     uint256 duelId,
@@ -292,11 +215,9 @@ interface ITournament {
 
   function currentReignId() external view returns (uint256);
 
-  function duelDetails(uint256 duelId, uint256 reignId) external view returns (Duel memory);
+  function duelDetails(uint256 reignId, uint256 duelId) external view returns (Duel memory);
 
   function duelistDetails(address duelist) external view returns (Duelist memory);
-
-  function contestDetails(uint256 reignId, uint256 contestId) external view returns (Contest memory);
 
   function reignDetails(uint256 reignId) external view returns (Reign memory);
 

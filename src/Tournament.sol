@@ -14,7 +14,6 @@ import {LibString} from "solady/src/utils/LibString.sol";
 
 import {TournamentPrizes} from "./TournamentPrizes.sol";
 import {TournamentBetSystem} from "./TournamentBetSystem.sol";
-
 import {DuelistDropFundsFactory} from "./DuelistDropFundsFactory.sol";
 
 import {ITournament} from "./interfaces/ITournament.sol";
@@ -23,7 +22,6 @@ import {ITournament} from "./interfaces/ITournament.sol";
 contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   uint256 private _tokenId;
-  uint256 private _contestId;
   uint256 private _duelId;
   uint256 private _reignId;
   uint256 private _dethroneId;
@@ -34,30 +32,18 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   DuelistDropFundsFactory private _dropFundsFactory;
 
   uint256 private constant DUEL_MIN_BEAT = 0.006 ether;
-  uint256 private constant DUELIST_REGISTER_FEE = 0.008 ether; //?????
   uint256 private constant DETHRONE_VOTE_FEE = 0.00003 ether;
 
   uint256 public openEditionPrice;
-  uint256 public maxAmountContestsByReign = 3;
+  uint256 public constant MAX_AMOUNT_DUELS_BY_REIGN = 3;
 
   //tokenId
   mapping(uint256 => TokenURIs) private _tokenURIs;
-  
   mapping(address => Duelist) private _duelists;
-  mapping(address => bool) private _isDuelist;
-  //contestId =>
-  //mapping(uint256 => Contest) private _contests;
-
-  mapping(uint256 => mapping(uint256 => Contest)) private _contests;
   //reignId => 
   mapping(uint256 => Reign) private _reigns;
-
-  //reignId => user address => is minister?
-  mapping(uint256 => mapping(address => bool)) _reignMinisters;
-
   //reignId => duelId
   mapping(uint256 => mapping(uint256 => Duel)) private _duels;
-
   //dethroneId
   mapping(uint256 => Dethrone) private _dethroneProposals;
 
@@ -86,34 +72,37 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     if (isKing(user)) revert IsTheKingError(); 
     _; 
   }
-
-  modifier onlyKingOrMinisters() { 
-    if (
-      msg.sender != _reigns[_reignId].king.kingAddress &&
-      !_reignMinisters[_reignId][msg.sender]
-    ) revert NotTheKingOrMinisterError(); 
-    _; 
-  }
   
-  //now are parties (partyDAO)
-  function duelistRegister(string calldata duelistName) external payable isTheKing(msg.sender) {
-    if (_isDuelist[msg.sender]) revert AlreadyRegisteredAsDuelistError();
-    if (_duelists[msg.sender].guillotined) revert HeadGuillotinedError();
-    if (msg.value != DUELIST_REGISTER_FEE) revert WrongPriceError();
+  function setDuelists(address[] memory duelists) external onlyOwner {
 
-    Duelist memory duelist;
-    duelist.name = duelistName;
+    for (uint256 i; i < duelists.length; i++) {
+      _duelists[duelists[i]].allowed = true;
 
-    _duelists[msg.sender] = duelist;
-    _isDuelist[msg.sender] = true;
-
-    _tournamentPrizes.mint(msg.sender, 2, 1);
-
-    emit RegisteredDuelist();
+      emit DuelistAdded(duelists[i]);
+    }
   }
 
-  //HOW "CALCULATE" THE DUELIST WINNER FROM THE WEEK?
-  //HOW TO DEAL WITH A TIE BETWEEN THE DUELISTS?
+  function createDuel(
+    string calldata title,
+    string calldata description
+  ) external onlyKing {
+
+    if (_reigns[_reignId].amountDuels == MAX_AMOUNT_DUELS_BY_REIGN) revert MaxAmountOfDuelsReachedError();
+
+    Duel memory duel;
+    duel.title = title;
+    duel.description = SSTORE2.write(bytes(description));
+    duel.winner = Winner.Undefined;
+    duel.duelStage = DuelStage.AwaitingSubmissions;
+
+    _duels[_reignId][++_duelId] = duel;
+    _reigns[_reignId].amountDuels += 1;
+
+    emit DuelCreated({
+      duelId: _duelId,
+      reignId: _reignId
+    });
+  }
 
   /*
 
@@ -127,54 +116,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     After the reign current time is over the week prize is available to claim
 
   */
-
-  function askForDuel(
-    address challenged, 
-    uint256 contestId
-  ) external 
-    isTheKing(msg.sender) //challenger 
-    isTheKing(challenged) 
-  {
-
-    if (contestId == 0 || contestId > _contestId) revert InvalidContestError();
-    if (!_isDuelist[msg.sender] || !_isDuelist[challenged]) revert NotADuelistError();
-    if (_duelists[msg.sender].guillotined || _duelists[challenged].guillotined) revert HeadGuillotinedError();
-
-    if (block.timestamp > _reigns[_reignId].entryDeadline) revert AskForDuelTimeExpiredError();
-    if (_contests[_reignId][contestId].reignId != _reignId) revert InvalidContestError(); 
-
-
-    Duel memory duel;
-    duel.challenger = msg.sender;
-    duel.challenged = challenged;
-    duel.contestId = contestId;
-    duel.winner = Winner.Undefined;
-    duel.duelStage = DuelStage.AwaitingResponse;
-
-    _duels[_reignId][++_duelId] = duel;
-
-    emit CreatedAskForDuel({
-      challenger: msg.sender,
-      challenged: challenged,
-      duelId: _duelId,
-      contestId: contestId
-    });
-
-  }
-
-  function acceptDuel(uint256 duelId) external {
-    Duel storage duel = _duels[_reignId][duelId];
-
-    if (msg.sender != duel.challenged) revert NotRegisteredForThisDuelError();
-    if (block.timestamp > _reigns[_reignId].entryDeadline) revert AcceptDuelTimeExpiredError();
-
-    duel.duelStage = DuelStage.Accepted;
-
-    _duelists[duel.challenger].dueling = true;
-    _duelists[duel.challenged].dueling = true;
-
-    emit DuelAccepted({duelId: duelId});
-  }
 
   function crownTheKing(string calldata kingName) external {
 
@@ -220,24 +161,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       newKing: msg.sender
     });
   }
-  
-  function createContest(string calldata name, string calldata description) external onlyKingOrMinisters {
-    if (_reigns[_reignId].amountContests == maxAmountContestsByReign) revert MaxAmountOfContestsReachedError();
-
-    _contests[_reignId][++_contestId] = Contest({
-      name: name,
-      description: description, // save with sstore too?
-      reignId: _reignId
-    });
-
-    _reigns[_reignId].amountContests += 1;
-
-    emit CreatedContest({contestId: _contestId});
-  }
 
   //the current king can judge others kingdoms not judged submissions
-  function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external onlyKingOrMinisters {
-    if (!_isDuelist[winner]) revert NotADuelistError();
+  function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external onlyKing {
+    if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (!_duelists[winner].allowed) revert NotADuelistError();
     if (duelId == 0 || duelId > _duelId) revert InvalidDuelError();
     if (reignId == 0 || reignId > _reignId) revert InvalidReignError();
 
@@ -245,35 +173,27 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     if (duel.duelStage != DuelStage.AwaitingJudgment) revert NotTimeOfPickWinnerError();
 
-    if (winner != duel.challenger && winner != duel.challenged) revert NotRegisteredForThisDuelError();
-
     duel.winnerDuelist = winner;
     duel.duelStage = DuelStage.Finished;
 
-    address loser = duel.challenger == winner ? duel.challenged : duel.challenger;
-
-    unchecked {
-
-      _duelists[winner].totalDuelWins += 1;
-      _duelists[loser].totalDuelDefeats += 1;
-      _reigns[reignId].amountWins += 1;
-      _reigns[reignId].amountDuels += 1;
-    }
-
-
     uint256 winnerTokenId;
     uint256 loserTokenId;
+    address loser;
 
-    if (winner == duel.challenger) {
-      winnerTokenId = duel.challengerEntryId;
-      loserTokenId = duel.challengedEntryId;
+    if (winner == duel.firstDuelist) {
+      winnerTokenId = duel.firstDuelistEntryId;
+      loserTokenId = duel.secondDuelistEntryId;
+      loser = duel.secondDuelist;
     } else {
-      loserTokenId = duel.challengerEntryId;
-      winnerTokenId = duel.challengedEntryId;
+      winnerTokenId = duel.secondDuelistEntryId;
+      loserTokenId = duel.firstDuelistEntryId;
+      loser = duel.firstDuelist;
     }
 
-    _duelists[winner].dueling = false;
-    _duelists[loser].dueling = false;
+    unchecked {
+      _duelists[winner].totalDuelWins += 1;
+      _duelists[loser].totalDuelDefeats += 1;
+    }
 
     //reclaim nft for the king
     //the current king gets the NFT
@@ -289,7 +209,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     emit PickedDuelWinner({
       winner: winner,
-      judgedBy: msg.sender,
       duelId: duelId
     });
 
@@ -306,24 +225,23 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     Duel storage duel = _duels[_reignId][duelId];
 
     if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
-    if (duel.duelStage == DuelStage.Declined) revert DuelDeclinedError();
-    if (duel.duelStage == DuelStage.AwaitingResponse) revert DuelAwaitingResponseError();
+    if (duel.duelStage == DuelStage.AwaitingJudgment) revert DuelAwaitingJudgementError();
 
     _tokenURIs[++_tokenId] = TokenURIs({
       metadataUri: uri,
       dropUri: dropUri
     });
 
-    if (msg.sender == duel.challenger) {
-      duel.challengerEntryId = _tokenId;
-    } else if (msg.sender == duel.challenged) {
-      duel.challengedEntryId = _tokenId;
+    if (msg.sender == duel.firstDuelist) {
+      duel.firstDuelistEntryId = _tokenId;
+    } else if (msg.sender == duel.secondDuelist) {
+      duel.secondDuelistEntryId = _tokenId;
     } else {
-      revert NotRegisteredForThisDuelError();
+      revert NotADuelistError();
     }
 
-    if (duel.challengedEntryId > 0 &&
-      duel.challengerEntryId > 0) {
+    if (duel.firstDuelistEntryId > 0 &&
+      duel.secondDuelistEntryId > 0) {
 
       duel.duelStage = DuelStage.AwaitingJudgment;
     }
@@ -337,13 +255,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     });
   }
 
-  function updateKingNameAndBio(
-    string calldata name,
-    bytes calldata bio
+  function updateKingName(
+    string calldata name
   ) external onlyKing {
 
     _reigns[_reignId].king.name = name;
-    _reigns[_reignId].king.biography = SSTORE2.write(bio);
 
     emit UpdatedKingBio();
   }
@@ -351,7 +267,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function pickSuccessor(address successor) external onlyKing {
     if (successor == address(0)) revert AddressCannotBeZeroError();
     if (successor == _reigns[_reignId].king.kingAddress) revert CannotCrownYourselfError();
-    //if (_isDuelist[successor])
 
     _reigns[_reignId].successorAddress = successor;
 
@@ -359,36 +274,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       reignId: _reignId,
       successor: successor
     });
-  }
-
-  function addMinister(address minister) external onlyKing {
-    if (minister == address(0)) revert AddressCannotBeZeroError();
-
-    _reignMinisters[_reignId][minister] = true;
-
-    emit AddedMinister({ minister: minister }); 
-  }
-
-  function removeMinister(address minister) external onlyKing {
-    delete _reignMinisters[_reignId][minister];
-
-    emit RemovedMinister({minister: minister});
-  }
-
-  /// THIS STILL MAKES SENSE NOW THAT THE DUELISTS ARE PARTIES? think about that later
-  function cutDuelistHead(address duelist) external onlyKing {
-
-    if (!_isDuelist[duelist]) revert NotADuelistError();
-    if (_duelists[duelist].dueling) revert CurrentlyDuelingError();
-    if (_duelists[duelist].guillotined) revert HeadGuillotinedError();
-
-    _duelists[duelist].guillotined = true;
-    _reigns[_reignId].amountGuillotined += 1;
-
-    //call another contract to mint nft
-    _tournamentPrizes.mint(duelist, 3, 1);
-
-    emit CuttedDuelistHead();
   }
 
   function dethroneKingProposal(address newKing) external {
@@ -442,22 +327,24 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     if (dethrone.trialEnd > block.timestamp) revert DethroneProposalVotePeriodOpenError();
     if (dethrone.trialActive) revert DethroneProposalFinishedError();
+
+
   }
 
   function betOnDuel(uint256 duelId, address bettingOn) external payable {
     Duel storage duel = _duels[_reignId][duelId];
 
-    if (duel.duelStage != DuelStage.Accepted && duel.duelStage != DuelStage.AwaitingJudgment) revert CannotBetError();
-    if (bettingOn != duel.challenger && bettingOn != duel.challenged) revert DuelistNotDuelParticipantError();
+    if (duel.duelStage == DuelStage.Finished) revert CannotBetError();
+    if (bettingOn != duel.firstDuelist && bettingOn != duel.secondDuelist) revert NotADuelistError();
     if (msg.value < DUEL_MIN_BEAT) revert ValueSentLowerThanMinBetError();
 
     uint96 fee = uint96((msg.value / 100) * 10);
     uint96 finalBetAmount = uint96(msg.value - fee); 
 
-    if (duel.challenger == bettingOn) {
-      duel.challengerTotalBetted += finalBetAmount;
+    if (duel.firstDuelist == bettingOn) {
+      duel.firstDuelistTotalBetted += finalBetAmount;
     } else {
-      duel.challengedTotalBetted += finalBetAmount;
+      duel.secondDuelistTotalBetted += finalBetAmount;
     }
 
     _tournamentBetSystem.storeBet{value: msg.value}(duelId, _reignId, bettingOn, msg.sender);
@@ -475,10 +362,10 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     ITournament.Bet memory bet = _tournamentBetSystem.betDetails(betId);
 
-    if (duel.challenger == bet.bettingOn) {
-      duel.challengerTotalBetted -= bet.betAmount;
+    if (duel.firstDuelist == bet.bettingOn) {
+      duel.firstDuelistTotalBetted -= bet.betAmount;
     } else {
-      duel.challengedTotalBetted -= bet.betAmount;
+      duel.secondDuelistTotalBetted -= bet.betAmount;
     }
 
     _tournamentBetSystem.cancelBet(betId);
@@ -488,7 +375,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     return _reignId;
   }
 
-  function duelDetails(uint256 duelId, uint256 reignId) external view returns (Duel memory) {
+  function duelDetails(uint256 reignId, uint256 duelId) external view returns (Duel memory) {
     return _duels[reignId][duelId];
   }
 
@@ -496,29 +383,18 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     return _duelists[duelist];
   }
 
-  function contestDetails(uint256 reignId, uint256 contestId) external view returns (Contest memory) {
-    return _contests[reignId][contestId];
-  }
-
   function reignDetails(uint256 reignId) external view returns (Reign memory) {
     return _reigns[reignId];
+  }
+
+  function readStore(address pointer) external view returns (string memory) {
+    return string(SSTORE2.read(pointer));
   }
 
   function tokenURI(uint256 tokenId) public view override returns (string memory) {
     _requireMinted(tokenId);
 
-    string memory _tokenURI = _tokenURIs[tokenId].metadataUri;
-    string memory base = _baseURI();
-
-    // If there is no base URI, return the token URI.
-    if (bytes(base).length == 0) {
-      return _tokenURI;
-    }
-    // If both are set, concatenate the baseURI and tokenURI (via abi.encodePacked).
-    if (bytes(_tokenURI).length > 0) {
-      return string(abi.encodePacked(base, _tokenURI));
-    }
-
+    return _tokenURIs[tokenId].metadataUri;
   }
 
   function contractURI() public view returns (string memory) {
@@ -527,10 +403,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   function isKing(address user) public view returns (bool) {
     return user == _reigns[_reignId].king.kingAddress;
-  }
-
-  function isMinister(address user, uint256 reignId) public view returns (bool) {
-    return _reignMinisters[reignId][user];
   }
   
   function _createDuelistDrop(address duelist, uint256 duelId, string memory dropUri) internal {
@@ -581,21 +453,21 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function _createDropAttributes(uint256 duelId) internal view returns (string memory name, string memory symbol, string memory description) {
     Duel memory duel = _duels[_reignId][duelId];
 
-    uint256 winningEntry = duel.winnerDuelist == duel.challenger ? duel.challengerEntryId : duel.challengedEntryId;
+    uint256 winningEntry = duel.winnerDuelist == duel.firstDuelist ? duel.firstDuelistEntryId : duel.secondDuelistEntryId;
 
     name = string(
       abi.encodePacked(
-        _duelists[duel.challenger].name,
+        _duelists[duel.firstDuelist].name,
         " X ",
-        _duelists[duel.challenged].name
+        _duelists[duel.secondDuelist].name
       )
     );
 
     symbol = string(
       abi.encodePacked(
         "$",
-        LibString.slice(_duelists[duel.challenger].name, 0, 1),
-        LibString.slice(_duelists[duel.challenged].name, 0, 1),
+        LibString.slice(_duelists[duel.firstDuelist].name, 0, 1),
+        LibString.slice(_duelists[duel.secondDuelist].name, 0, 1),
         "D"
       )
     );
@@ -603,11 +475,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     description = string(
       abi.encodePacked(
         "The duelist ",
-        _duelists[duel.challenger].name,
-        " challenged duelist ",
-        _duelists[duel.challenged].name,
-        " to a duel in the contest: ",
-        _contests[_reignId][duel.contestId].name,
+        _duelists[duel.firstDuelist].name,
+        " and the duelist ",
+        _duelists[duel.secondDuelist].name,
+        " battled in the duel: ",
+        duel.title,
         ". The duelist ",
         _duelists[duel.winnerDuelist].name,
         " won with submission number #",

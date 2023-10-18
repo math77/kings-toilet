@@ -78,14 +78,14 @@ contract TournamentBetSystem is Ownable {
 
     if (bet.bettingOn != duel.winnerDuelist) revert NoProfitsForTakeError();
 
-    console.log("CHALLENGER TOTAL BETTED: ", duel.challengerTotalBetted);
-    console.log("CHALLENGEND TOTAL BETTED: ", duel.challengedTotalBetted);
+    console.log("CHALLENGER TOTAL BETTED: ", duel.firstDuelistTotalBetted);
+    console.log("CHALLENGEND TOTAL BETTED: ", duel.secondDuelistTotalBetted);
 
     uint256 profit;
     if (duel.winner == ITournament.Winner.Challenger) {
-      profit = betProfit(bet.betAmount, duel.challengerTotalBetted, duel.challengedTotalBetted);
+      profit = betProfit(bet.betAmount, duel.firstDuelistTotalBetted, duel.secondDuelistTotalBetted);
     } else {
-      profit = betProfit(bet.betAmount, duel.challengedTotalBetted, duel.challengerTotalBetted);
+      profit = betProfit(bet.betAmount, duel.secondDuelistTotalBetted, duel.firstDuelistTotalBetted);
     }
 
     console.log("PROFIT: ", profit);

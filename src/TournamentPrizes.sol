@@ -10,30 +10,67 @@ import {Tournament} from "./Tournament.sol";
 
 contract TournamentPrizes is ERC1155, Ownable {
 
-  uint256 private _tokenId;
+  enum DuelStage {
+    AwaitingSubmissions,
+    AwaitingJudgment,
+    Finished
+  }
 
   Tournament private _tournamentContract;
 
   mapping(uint256 => string) private _uris;
 
 
-  event CreatedPrizes(uint256 weekPrizeId, uint256 duelPrizeId); 
-  event UpdatedTournamentContract();
-  event UpdatedURIs();
+  event DuelPrizeAdded(
+    uint256 duelId, 
+    uint256 reignId
+  );
+
+  event WeekPrizeAdded(
+    uint256 duelId, 
+    uint256 reignId
+  );
+
+  event TournamentContractUpdated();
 
   error CallerNotTournamentContractError();
   error URICannotBeEmptyError();
-  error IsNotTheKingError();
+  error NotTheKingError();
+  error DuelFinishedError();
 
   modifier onlyTournament() { 
     if(msg.sender != address(_tournamentContract)) revert CallerNotTournamentContractError(); 
     _; 
+  }
+
+  modifier onlyKing() {
+    if (!_tournamentContract.isKing(msg.sender)) revert NotTheKingError();
+    _;
   }
   
   constructor() ERC1155("") Ownable() {}
 
   function mint(address user, uint256 id, uint256 amount) external onlyTournament {
     _mint(user, id, amount, "");
+  }
+
+
+  function addDuelPrize(uint256 duelId, string calldata uri) external onlyKing {
+    uint256 reignId = _tournamentContract.currentReignId();
+
+    if (_tournamentContract.duelDetails(reignId, duelId).duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (bytes(uri).length == 0) revert URICannotBeEmptyError();
+    
+    _uris[duelId] = uri;
+
+    emit DuelPrizeAdded({
+      duelId: duelId,
+      reignId: reignId
+    });
+  }
+
+  function addWeekPrize() external onlyKing {
+
   }
 
   function addPrizes(
@@ -70,14 +107,10 @@ contract TournamentPrizes is ERC1155, Ownable {
 
   }
 
-  function currentTokenId() external view returns (uint256) {
-    return _tokenId;
-  }
-
   function setTournamentAddress(Tournament tournament) external onlyOwner {
     _tournamentContract = tournament;
 
-    emit UpdatedTournamentContract();
+    emit TournamentContract();
   }
 
   function uri(uint256 id) public view override returns (string memory) {
