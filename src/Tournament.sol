@@ -13,7 +13,6 @@ import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 
 import {TournamentPrizes} from "./TournamentPrizes.sol";
-import {TournamentBetSystem} from "./TournamentBetSystem.sol";
 import {DuelistDropFundsFactory} from "./DuelistDropFundsFactory.sol";
 
 import {ITournament} from "./interfaces/ITournament.sol";
@@ -28,22 +27,23 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   ZoraNFTCreatorV1 public immutable zoraNftCreator;  
   TournamentPrizes private _tournamentPrizes;
-  TournamentBetSystem private _tournamentBetSystem;
   DuelistDropFundsFactory private _dropFundsFactory;
 
-  uint256 private constant DUEL_MIN_BEAT = 0.006 ether;
   uint256 private constant DETHRONE_VOTE_FEE = 0.00003 ether;
 
   uint256 public openEditionPrice;
   uint256 public constant MAX_AMOUNT_DUELS_BY_REIGN = 3;
 
   //tokenId
-  mapping(uint256 => TokenURIs) private _tokenURIs;
+  //mapping(uint256 => TokenURIs) private _tokenURIs;
   mapping(address => Duelist) private _duelists;
   //reignId => 
   mapping(uint256 => Reign) private _reigns;
   //reignId => duelId
   mapping(uint256 => mapping(uint256 => Duel)) private _duels;
+
+  //duelId => duelist => submission
+  mapping(uint256 => mapping(address => ERC721Drop)) private _duelSubmissions;
   //dethroneId
   mapping(uint256 => Dethrone) private _dethroneProposals;
 
@@ -51,13 +51,11 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   fallback() external payable {}
 
   constructor(
-    TournamentPrizes tournamentPrizes, 
-    TournamentBetSystem tournamentBetSystem,
+    TournamentPrizes tournamentPrizes,
     DuelistDropFundsFactory dropFundsFactory,
     ZoraNFTCreatorV1 nftCreator
   ) ERC721("TOURNAMENT", "TOURNAMENT") Ownable() {
     _tournamentPrizes = tournamentPrizes;
-    _tournamentBetSystem = tournamentBetSystem;
     _dropFundsFactory = dropFundsFactory;
     zoraNftCreator = nftCreator;
   }
@@ -72,6 +70,12 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     if (isKing(user)) revert IsTheKingError(); 
     _; 
   }
+
+  modifier onlyDuelist() { 
+    if (!_duelists[msg.sender].allowed) revert NotADuelistError(); 
+    _; 
+  }
+  
   
   function setDuelists(address[] memory duelists) external onlyOwner {
 
@@ -84,18 +88,26 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   function createDuel(
     string calldata title,
-    string calldata description
+    string calldata description,
+    uint256 duration
   ) external onlyKing {
 
     if (_reigns[_reignId].amountDuels == MAX_AMOUNT_DUELS_BY_REIGN) revert MaxAmountOfDuelsReachedError();
 
+    address dropProceeds = _dropFundsFactory.deployDuelistDropFunds(
+      _reignId,
+      ++_duelId
+    );
+
     Duel memory duel;
     duel.title = title;
     duel.description = SSTORE2.write(bytes(description));
-    duel.winner = Winner.Undefined;
+    duel.dropProceeds = dropProceeds;
+    duel.entryStart = uint64(block.timestamp);
+    duel.entryEnd = _reigns[_reignId].entryDeadline;
     duel.duelStage = DuelStage.AwaitingSubmissions;
 
-    _duels[_reignId][++_duelId] = duel;
+    _duels[_reignId][_duelId] = duel;
     _reigns[_reignId].amountDuels += 1;
 
     emit DuelCreated({
@@ -162,97 +174,98 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     });
   }
 
-  //the current king can judge others kingdoms not judged submissions
-  function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external onlyKing {
-    if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
-    if (!_duelists[winner].allowed) revert NotADuelistError();
-    if (duelId == 0 || duelId > _duelId) revert InvalidDuelError();
-    if (reignId == 0 || reignId > _reignId) revert InvalidReignError();
-
-    Duel storage duel = _duels[reignId][duelId];
-
-    if (duel.duelStage != DuelStage.AwaitingJudgment) revert NotTimeOfPickWinnerError();
-
-    duel.winnerDuelist = winner;
-    duel.duelStage = DuelStage.Finished;
-
-    uint256 winnerTokenId;
-    uint256 loserTokenId;
-    address loser;
-
-    if (winner == duel.firstDuelist) {
-      winnerTokenId = duel.firstDuelistEntryId;
-      loserTokenId = duel.secondDuelistEntryId;
-      loser = duel.secondDuelist;
-    } else {
-      winnerTokenId = duel.secondDuelistEntryId;
-      loserTokenId = duel.firstDuelistEntryId;
-      loser = duel.firstDuelist;
-    }
-
-    unchecked {
-      _duelists[winner].totalDuelWins += 1;
-      _duelists[loser].totalDuelDefeats += 1;
-    }
-
-    //reclaim nft for the king
-    //the current king gets the NFT
-    _transfer(winner, _reigns[_reignId].king.kingAddress, winnerTokenId);
-
-    //send loser for the toilet
-    _burn(loserTokenId);
-
-    //call another contract to mint medal nft
-    _tournamentPrizes.mint(winner, _tournamentPrizes.currentTokenId(), 1);
-
-    _createDuelistDrop(winner, duelId, _tokenURIs[winnerTokenId].dropUri);
-
-    emit PickedDuelWinner({
-      winner: winner,
-      duelId: duelId
-    });
-
-  }
-
-  function createDuelEntry(
-    string calldata uri,
-    string calldata dropUri, 
-    uint256 duelId
-  ) external payable {
-
-    if (block.timestamp > _reigns[_reignId].entryDeadline) revert EntryDeadlineExpiredError();
-
+  function submitDuelEntry(
+    uint256 duelId,
+    string memory name,
+    string memory symbol, 
+    string memory uri, 
+    string memory description
+  ) external onlyDuelist {
     Duel storage duel = _duels[_reignId][duelId];
 
+    if (block.timestamp > duel.entryEnd) revert DuelEntryDeadlineReachedError();
+
     if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
-    if (duel.duelStage == DuelStage.AwaitingJudgment) revert DuelAwaitingJudgementError();
+    if (address(_duelSubmissions[duelId][msg.sender]) != address(0)) revert AlreadySubmittedError();
 
-    _tokenURIs[++_tokenId] = TokenURIs({
-      metadataUri: uri,
-      dropUri: dropUri
-    });
+    ERC721Drop drop = ERC721Drop(
+      payable(
+        zoraNftCreator.createEditionWithReferral({
+          name: name,
+          symbol: symbol,
+          editionSize: type(uint64).max,
+          royaltyBPS: 0,
+          fundsRecipient: payable(duel.dropProceeds), //CHANGE FOR A DEPLOYED FUNDS CONTRACT SPECIFIC FOR THIS DUEL (implementation)
+          defaultAdmin: msg.sender,
+          saleConfig: IERC721Drop.SalesConfiguration({
+            publicSalePrice: uint104(openEditionPrice),
+            maxSalePurchasePerAddress: type(uint32).max,
+            publicSaleStart: uint64(block.timestamp),
+            publicSaleEnd: duel.entryEnd + 2 days,
+            presaleStart: 0,
+            presaleEnd: 0,
+            presaleMerkleRoot: 0x0
+          }),
+          description: description,
+          animationURI: "",
+          imageURI: uri,
+          createReferral: address(this) //put my own addres
+        })
+      )
+    );
 
-    if (msg.sender == duel.firstDuelist) {
-      duel.firstDuelistEntryId = _tokenId;
-    } else if (msg.sender == duel.secondDuelist) {
-      duel.secondDuelistEntryId = _tokenId;
-    } else {
-      revert NotADuelistError();
-    }
+    duel.participants.push(msg.sender);
+    _duelSubmissions[duelId][msg.sender] = drop;
 
-    if (duel.firstDuelistEntryId > 0 &&
-      duel.secondDuelistEntryId > 0) {
 
-      duel.duelStage = DuelStage.AwaitingJudgment;
-    }
+    drop.setOwner(msg.sender);
+    drop.mintWithRewards(
+      _reigns[_reignId].king.kingAddress,
+      1,
+      "",
+      address(this)
+    );
 
-    _mint(msg.sender, _tokenId);
-
-    emit CreatedDuelEntry({
+    emit DuelEntrySubmitted({
       duelist: msg.sender,
-      duelId: duelId,
-      entryId: _tokenId
+      dropAddress: drop,
+      duelId: duelId
     });
+  }
+
+  function finishDuel(uint256 reignId, uint256 duelId) external {
+    Duel storage duel = _duels[reignId][duelId];
+
+    if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (block.timestamp < duel.entryEnd) revert NotFinishTimeError();
+
+    duel.duelStage = DuelStage.Finished;
+
+    uint256 maxTotalSupply;
+    uint256 leaderCount;
+
+    uint256[] memory supplies = new uint256[](duel.participants.length);
+    for (uint256 i; i < duel.participants.length; i++) {
+      ERC721Drop drop = _duelSubmissions[duelId][duel.participants[i]];
+      supplies[i] = drop.totalSupply();      
+      if (supplies[i] > maxTotalSupply) {
+        maxTotalSupply = supplies[i];
+        leaderCount = 1;
+      } else if (supplies[i] == maxTotalSupply) {
+        leaderCount++;
+      }
+    }
+
+    for (uint256 i; i < duel.participants.length; i++) {
+      if (supplies[i] == maxTotalSupply) {
+        duel.winners[i] = duel.participants[i];
+        emit DuelFinished({
+          duelist: duel.participants[i],
+          prize: 0,
+          duelId: duelId
+        });
+      }
+    }
   }
 
   function updateKingName(
@@ -327,48 +340,6 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     if (dethrone.trialEnd > block.timestamp) revert DethroneProposalVotePeriodOpenError();
     if (dethrone.trialActive) revert DethroneProposalFinishedError();
-
-
-  }
-
-  function betOnDuel(uint256 duelId, address bettingOn) external payable {
-    Duel storage duel = _duels[_reignId][duelId];
-
-    if (duel.duelStage == DuelStage.Finished) revert CannotBetError();
-    if (bettingOn != duel.firstDuelist && bettingOn != duel.secondDuelist) revert NotADuelistError();
-    if (msg.value < DUEL_MIN_BEAT) revert ValueSentLowerThanMinBetError();
-
-    uint96 fee = uint96((msg.value / 100) * 10);
-    uint96 finalBetAmount = uint96(msg.value - fee); 
-
-    if (duel.firstDuelist == bettingOn) {
-      duel.firstDuelistTotalBetted += finalBetAmount;
-    } else {
-      duel.secondDuelistTotalBetted += finalBetAmount;
-    }
-
-    _tournamentBetSystem.storeBet{value: msg.value}(duelId, _reignId, bettingOn, msg.sender);
-
-    emit CreatedDuelBet({
-      duelId: duelId
-    });
-  }
-
-  function cancelBet(uint256 duelId, uint256 betId) external {
-    Duel storage duel = _duels[_reignId][duelId];
-
-    if (duel.duelStage == DuelStage.AwaitingJudgment) revert CannotCancelBetError();
-
-
-    ITournament.Bet memory bet = _tournamentBetSystem.betDetails(betId);
-
-    if (duel.firstDuelist == bet.bettingOn) {
-      duel.firstDuelistTotalBetted -= bet.betAmount;
-    } else {
-      duel.secondDuelistTotalBetted -= bet.betAmount;
-    }
-
-    _tournamentBetSystem.cancelBet(betId);
   }
 
   function currentReignId() external view returns (uint256) {
@@ -391,126 +362,21 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     return string(SSTORE2.read(pointer));
   }
 
+  /*
   function tokenURI(uint256 tokenId) public view override returns (string memory) {
     _requireMinted(tokenId);
 
-    return _tokenURIs[tokenId].metadataUri;
+    return "_tokenURIs[tokenId].metadataUri";
   }
+
 
   function contractURI() public view returns (string memory) {
     return "ipfs://";
   }
+  */
 
   function isKing(address user) public view returns (bool) {
     return user == _reigns[_reignId].king.kingAddress;
-  }
-  
-  function _createDuelistDrop(address duelist, uint256 duelId, string memory dropUri) internal {
-
-    (
-      string memory name,
-      string memory symbol,
-      string memory description
-    ) = _createDropAttributes(duelId);
-
-    //deploy funds contract
-
-    address fundsAddress = _dropFundsFactory.deployDuelistDropFunds(
-      _reigns[_reignId].king.kingAddress,
-      duelist
-    );
-
-
-    ERC721Drop drop = ERC721Drop(
-      payable(
-        zoraNftCreator.createEditionWithReferral({
-          name: name,
-          symbol: symbol,
-          editionSize: type(uint64).max,
-          royaltyBPS: 0,
-          fundsRecipient: payable(fundsAddress), //CHANGE FOR A DEPLOYED FUNDS CONTRACT SPECIFIC FOR THIS DUEL (implementation)
-          defaultAdmin: address(this),
-          saleConfig: IERC721Drop.SalesConfiguration({
-            publicSalePrice: uint104(openEditionPrice),
-            maxSalePurchasePerAddress: type(uint32).max,
-            publicSaleStart: uint64(block.timestamp),
-            publicSaleEnd: uint64(block.timestamp +  3 days),
-            presaleStart: 0,
-            presaleEnd: 0,
-            presaleMerkleRoot: 0x0
-          }),
-          description: description,
-          animationURI: "",
-          imageURI: dropUri, // ????
-          createReferral: address(this) //put my own addres
-        })
-      )
-    );
-
-    _duels[_reignId][duelId].winnerDrop = drop;
-  }
-
-  function _createDropAttributes(uint256 duelId) internal view returns (string memory name, string memory symbol, string memory description) {
-    Duel memory duel = _duels[_reignId][duelId];
-
-    uint256 winningEntry = duel.winnerDuelist == duel.firstDuelist ? duel.firstDuelistEntryId : duel.secondDuelistEntryId;
-
-    name = string(
-      abi.encodePacked(
-        _duelists[duel.firstDuelist].name,
-        " X ",
-        _duelists[duel.secondDuelist].name
-      )
-    );
-
-    symbol = string(
-      abi.encodePacked(
-        "$",
-        LibString.slice(_duelists[duel.firstDuelist].name, 0, 1),
-        LibString.slice(_duelists[duel.secondDuelist].name, 0, 1),
-        "D"
-      )
-    );
-
-    description = string(
-      abi.encodePacked(
-        "The duelist ",
-        _duelists[duel.firstDuelist].name,
-        " and the duelist ",
-        _duelists[duel.secondDuelist].name,
-        " battled in the duel: ",
-        duel.title,
-        ". The duelist ",
-        _duelists[duel.winnerDuelist].name,
-        " won with submission number #",
-        winningEntry
-      )
-    );
-  }
-
-  function _burn(uint256 tokenId) internal virtual override {
-    super._burn(tokenId);
-
-    if (bytes(_tokenURIs[tokenId].metadataUri).length != 0) {
-      delete _tokenURIs[tokenId];
-    }
-  }
-
-  /*
-
-  FIX THIS
-  */
-
-  function _beforeTokenTransfer(
-    address from, 
-    address to, 
-    uint256 /*firstTokenId*/,
-    uint256 /*batchSize*/
-  ) internal virtual override {
-
-    if (from != address(0) && (to != address(0) && to != _reigns[_reignId].king.kingAddress)) {
-      revert CannotTransferError();
-    }
   }
 
 }

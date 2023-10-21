@@ -8,8 +8,8 @@ interface IDuelistDropFunds {
   error YouArePoorSorry();
 
   function initialize(
-    address kingAddress,
-    address duelistAddress
+    uint256 reignId,
+    uint256 duelId
   ) external;
 
   function withdrawFunds() external;

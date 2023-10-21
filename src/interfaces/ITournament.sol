@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
+import {ERC721Drop} from "zora/src/ERC721Drop.sol";
 
 interface ITournament {
 
@@ -57,15 +58,11 @@ interface ITournament {
   struct Duel {
     string title;
     address description; //sstore pointer
-    address firstDuelist;
-    address secondDuelist;
-    uint256 betAmount;
-    uint256 firstDuelistEntryId;
-    uint256 secondDuelistEntryId;
-    uint96 firstDuelistTotalBetted;
-    uint96 secondDuelistTotalBetted;
-    address winnerDuelist;
-    IERC721Drop winnerDrop;
+    uint64 entryStart;
+    uint64 entryEnd;
+    address dropProceeds;
+    address[] participants;
+    address[] winners;
     Winner winner;
     DuelStage duelStage;
   }
@@ -76,11 +73,6 @@ interface ITournament {
     address bettingOn;
     address owner;
     uint96 betAmount;
-  }
-
-  struct TokenURIs {
-    string metadataUri;
-    string dropUri;
   }
 
   /* EVENTS */
@@ -98,19 +90,20 @@ interface ITournament {
     uint256 indexed reignId
   );
 
+  event DuelFinished(
+    address duelist,
+    uint256 prize,
+    uint256 duelId
+  );
+
   event PickedSuccessor(
     uint256 indexed reignId,
     address indexed successor
   );
 
-  event CreatedDuelEntry(
+  event DuelEntrySubmitted(
     address duelist,
-    uint256 duelId,
-    uint256 indexed entryId
-  );
-
-  event PickedDuelWinner(
-    address winner,
+    ERC721Drop dropAddress,
     uint256 duelId
   );
 
@@ -119,13 +112,16 @@ interface ITournament {
     address newKing
   );
 
-  event CreatedDuelBet(
-    uint256 duelId
-  );
-
   event UpdatedKingBio();
 
   /* ERRORS */
+
+
+  error AlreadySubmittedError();
+
+  error WrongPriceError();
+
+  error AddressCannotBeZeroError();
 
   error InvalidDeposeVoteError();
 
@@ -136,10 +132,6 @@ interface ITournament {
   error DethroneProposalFinishedError();
 
   error DethroneProposalVotePeriodOpenError();
-
-  error AddressCannotBeZeroError();
-
-  error WrongPriceError();
 
   error IsTheKingError();
 
@@ -155,11 +147,9 @@ interface ITournament {
 
   error DuelAwaitingJudgementError();
 
-  error NotTimeOfPickWinnerError();
+  error NotFinishTimeError();
 
   error CannotCrownYourselfError();
-
-  error CannotTransferError();
 
   error NotTimeForNewKingError();
 
@@ -167,11 +157,7 @@ interface ITournament {
 
   error EntryDeadlineExpiredError();
 
-  error ValueSentLowerThanMinBetError();
-
-  error CannotBetError();
-
-  error CannotCancelBetError();
+  error DuelEntryDeadlineReachedError();
 
   error MaxAmountOfDuelsReachedError();
 
@@ -182,30 +168,21 @@ interface ITournament {
     string calldata name
   ) external;
 
-  function createDuelEntry(
-    string calldata uri,
-    string calldata dropUri,
-    uint256 duelId
-  ) payable external;
+  function submitDuelEntry(
+    uint256 duelId, 
+    string memory name,
+    string memory symbol,
+    string memory uri, 
+    string memory description
+  ) external;
 
   function createDuel(
     string calldata title,
-    string calldata description
+    string calldata description,
+    uint256 duration
   ) external;
 
   function crownTheKing(string calldata kingName) external;
-
-  function pickDuelWinner(uint256 reignId, uint256 duelId, address winner) external;
-
-  function betOnDuel(
-    uint256 duelId,
-    address bettingOn
-  ) payable external;
-
-  function cancelBet(
-    uint256 duelId,
-    uint256 betId
-  ) external;
 
   function dethroneKingProposal(address newKing) external;
 

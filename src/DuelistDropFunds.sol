@@ -6,47 +6,42 @@ import {Initializable} from "openzeppelin-contracts/contracts/proxy/utils/Initia
 import {ProtocolRewards} from "@zoralabs/protocol-rewards/src/ProtocolRewards.sol";
 
 import {IDuelistDropFunds} from "./interfaces/IDuelistDropFunds.sol";
+import {Tournament} from "./Tournament.sol";
 
-//
+
 contract DuelistDropFunds is Initializable, IDuelistDropFunds {
 
-  address public kingAddress;
-  address public duelistAddress;
-
-
   ProtocolRewards public rewardsContract;
+  Tournament public tournamentContract;
+
+  uint256 public reignId;
+  uint256 public duelId;
 
   receive() external payable {}
   fallback() external payable {}
-  
 
-  modifier isAllowed() { 
-    if (msg.sender != kingAddress && msg.sender != duelistAddress) {
-      revert WithdrawNotAllowed();
-    }
-    _; 
-  }
-
-  function initialize(address _kingAddress, address _duelistAddress) external initializer {
-    kingAddress = _kingAddress;
-    duelistAddress = _duelistAddress;
+  function initialize(uint256 _reignId, uint256 _duelId) external initializer {
+    reignId = _reignId;
+    duelId = _duelId;
     rewardsContract = ProtocolRewards(0x7777777F279eba3d3Ad8F4E708545291A6fDBA8B);
   }
 
-  function withdrawFunds() external isAllowed {
-    uint256 amountAvailable = rewardsContract.balanceOf(msg.sender);
+  function withdrawFunds() external {
+    uint256 amountAvailable = rewardsContract.balanceOf(address(this));
 
     if (amountAvailable == 0) {
       revert YouArePoorSorry();
     }
 
-    uint256 amountToWithdraw;
-    if (msg.sender == kingAddress) {
-      amountToWithdraw = (amountAvailable / 100) * 10;
-    } else {
-      amountToWithdraw = (amountAvailable / 100) * 90;
-    }
+    address[] memory winners = tournamentContract.duelDetails(reignId, duelId).winners;
 
-    rewardsContract.withdraw(msg.sender, amountToWithdraw);    
+    rewardsContract.withdraw(address(this), amountAvailable);
+
+    uint256 prize = address(this).balance / winners.length;
+
+    for (uint256 i; i < winners.length; i++) {
+      (bool success,) = winners[i].call{value: prize}("");
+      if (!success) revert();
+    }    
   }
 }

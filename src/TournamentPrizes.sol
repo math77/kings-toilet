@@ -55,13 +55,13 @@ contract TournamentPrizes is ERC1155, Ownable {
   }
 
 
-  function addDuelPrize(uint256 duelId, string calldata uri) external onlyKing {
+  function addDuelPrize(uint256 duelId, string calldata imageURI) external onlyKing {
     uint256 reignId = _tournamentContract.currentReignId();
 
-    if (_tournamentContract.duelDetails(reignId, duelId).duelStage == DuelStage.Finished) revert DuelFinishedError();
-    if (bytes(uri).length == 0) revert URICannotBeEmptyError();
+    //if (_tournamentContract.duelDetails(reignId, duelId).duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (bytes(imageURI).length == 0) revert URICannotBeEmptyError();
     
-    _uris[duelId] = uri;
+    _uris[duelId] = imageURI;
 
     emit DuelPrizeAdded({
       duelId: duelId,
@@ -73,44 +73,10 @@ contract TournamentPrizes is ERC1155, Ownable {
 
   }
 
-  function addPrizes(
-    string calldata weekPrizeUri,
-    string calldata duelPrizeUri
-  ) external {
-
-    if (!_tournamentContract.isKing(msg.sender)) revert IsNotTheKingError();
-
-    if (bytes(duelPrizeUri).length == 0 || bytes(weekPrizeUri).length == 0) revert URICannotBeEmptyError();
-
-    _uris[++_tokenId] = weekPrizeUri;
-    _uris[++_tokenId] = duelPrizeUri;
-
-    emit CreatedPrizes({
-      weekPrizeId: _tokenId - 1,
-      duelPrizeId: _tokenId
-    });
-  }
-
-  function addURIs(
-    string calldata kingUri, 
-    string calldata registerDuelistUri,
-    string calldata guillotineUri
-  ) external onlyOwner {
-
-    unchecked {
-      _uris[++_tokenId] = kingUri;
-      _uris[++_tokenId] = registerDuelistUri;
-      _uris[++_tokenId] = guillotineUri;
-    }
-
-    emit UpdatedURIs();
-
-  }
-
   function setTournamentAddress(Tournament tournament) external onlyOwner {
     _tournamentContract = tournament;
 
-    emit TournamentContract();
+    emit TournamentContractUpdated();
   }
 
   function uri(uint256 id) public view override returns (string memory) {

@@ -18,14 +18,14 @@ contract DuelistDropFundsFactory {
   }
 
   function deployDuelistDropFunds(
-    address _kingAddress,
-    address _duelistAddress
+    uint256 _reignId,
+    uint256 _duelId
   ) external returns (address) {
     address _dropFunds = implementation.clone();
 
     IDuelistDropFunds(_dropFunds).initialize(
-      _kingAddress,
-      _duelistAddress
+      _reignId,
+      _duelId
     );
 
     emit DuelistDropFundsCreated();
