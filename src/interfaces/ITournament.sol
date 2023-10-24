@@ -6,31 +6,13 @@ import {ERC721Drop} from "zora/src/ERC721Drop.sol";
 
 interface ITournament {
 
-  enum DuelStage {
-    AwaitingSubmissions,
-    AwaitingJudgment,
-    Finished
-  }
-
-  struct Dethrone {
-    address kingAddress;
-    uint64 tomatoes; // for dethrone
-    uint64 flowers; // against dethrone
-    uint64 trialStart;
-    uint64 trialEnd;
-    address proposer;
-    address newKing;
-    bool trialActive;
-  }
-
   struct Reign {
     address kingAddress;
     address successorAddress;
-    address weekWinner;
     uint64 reignStart;
     uint64 reignEnd;
     uint64 entryDeadline;
-    uint64 amountDuels;
+    uint64 numberDuels;
   }
 
   struct Duelist {
@@ -46,7 +28,7 @@ interface ITournament {
     address dropProceeds;
     address[] participants;
     address[] winners;
-    DuelStage duelStage;
+    bool finished;
   }
 
   /* EVENTS */
@@ -60,11 +42,10 @@ interface ITournament {
 
   event DuelFinished(
     address duelist,
-    uint256 prize,
     uint256 duelId
   );
 
-  event PickedSuccessor(
+  event SuccessorAdded(
     uint256 indexed reignId,
     address indexed successor
   );
@@ -75,20 +56,19 @@ interface ITournament {
     uint256 duelId
   );
 
-  event CrownedNewKing(
+  event NewKingCrowned(
     uint256 indexed reignId,
     address indexed oldKing,
     address indexed newKing
   );
 
-  event UpdatedKingBio();
+  event OpenEditionPriceUpdated();
+
+  event MaxNumberDuelsUpdated();
 
   /* ERRORS */
 
-
   error AlreadySubmittedError();
-
-  error WrongPriceError();
 
   error AddressCannotBeZeroError();
 
@@ -104,8 +84,6 @@ interface ITournament {
 
   error DuelFinishedError();
 
-  error DuelAwaitingJudgementError();
-
   error NotFinishTimeError();
 
   error CannotCrownYourselfError();
@@ -118,7 +96,7 @@ interface ITournament {
 
   error DuelEntryDeadlineReachedError();
 
-  error MaxAmountOfDuelsReachedError();
+  error MaxNumberDuelsReachedError();
 
 
   function setDuelists(address[] memory duelists) external;
@@ -135,6 +113,8 @@ interface ITournament {
     string calldata title,
     string calldata description
   ) external;
+
+  function addSuccessor(address successor) external;
 
   function crownTheKing() external;
 

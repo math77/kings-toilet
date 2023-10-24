@@ -34,10 +34,16 @@ contract DuelistDropFunds is Initializable, IDuelistDropFunds {
     }
 
     address[] memory winners = tournamentContract.duelDetails(reignId, duelId).winners;
+    address kingAddress = tournamentContract.reignDetails(reignId).kingAddress;
 
     rewardsContract.withdraw(address(this), amountAvailable);
 
-    uint256 prize = address(this).balance / winners.length;
+    uint256 kingPayment = (address(this).balance / 100) * 10;
+    uint256 prize = (address(this).balance - kingPayment) / winners.length;
+
+
+    (bool success,) = kingAddress.call{value: kingPayment}("");
+    if (!success) revert();
 
     for (uint256 i; i < winners.length; i++) {
       (bool success,) = winners[i].call{value: prize}("");

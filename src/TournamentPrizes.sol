@@ -2,19 +2,12 @@
 pragma solidity 0.8.17;
 
 import {ERC1155} from "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Ownable} from "solady/src/auth/Ownable.sol";
 
 import {Tournament} from "./Tournament.sol";
 
 
 contract TournamentPrizes is ERC1155, Ownable {
-
-  enum DuelStage {
-    AwaitingSubmissions,
-    AwaitingJudgment,
-    Finished
-  }
 
   Tournament private _tournamentContract;
 
@@ -25,12 +18,6 @@ contract TournamentPrizes is ERC1155, Ownable {
     uint256 duelId, 
     uint256 reignId
   );
-
-  event WeekPrizeAdded(
-    uint256 duelId, 
-    uint256 reignId
-  );
-
   event TournamentContractUpdated();
 
   error CallerNotTournamentContractError();
@@ -48,7 +35,9 @@ contract TournamentPrizes is ERC1155, Ownable {
     _;
   }
   
-  constructor() ERC1155("") Ownable() {}
+  constructor() ERC1155("") {
+    _initializeOwner(msg.sender);
+  }
 
   function mint(address user, uint256 id, uint256 amount) external onlyTournament {
     _mint(user, id, amount, "");
@@ -58,7 +47,7 @@ contract TournamentPrizes is ERC1155, Ownable {
   function addDuelPrize(uint256 duelId, string calldata imageURI) external onlyKing {
     uint256 reignId = _tournamentContract.currentReignId();
 
-    //if (_tournamentContract.duelDetails(reignId, duelId).duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (_tournamentContract.duelDetails(reignId, duelId).finished) revert DuelFinishedError();
     if (bytes(imageURI).length == 0) revert URICannotBeEmptyError();
     
     _uris[duelId] = imageURI;
@@ -67,10 +56,6 @@ contract TournamentPrizes is ERC1155, Ownable {
       duelId: duelId,
       reignId: reignId
     });
-  }
-
-  function addWeekPrize() external onlyKing {
-
   }
 
   function setTournamentAddress(Tournament tournament) external onlyOwner {

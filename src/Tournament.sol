@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Ownable} from "solady/src/auth/Ownable.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 import {ERC721Drop} from "zora/src/ERC721Drop.sol";
@@ -29,7 +29,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   DuelistDropFundsFactory private _dropFundsFactory;
 
   uint256 public openEditionPrice;
-  uint256 public maxAmountDuelsByReign;
+  uint256 public maxNumberDuelsByReign;
 
   mapping(address => Duelist) private _duelists;
   //reignId => 
@@ -48,13 +48,15 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     TournamentPrizes tournamentPrizes,
     DuelistDropFundsFactory dropFundsFactory,
     ZoraNFTCreatorV1 nftCreator
-  ) ERC721("TOURNAMENT", "TOURNAMENT") Ownable() {
+  ) ERC721("TOURNAMENT", "TOURNAMENT") {
     _tournamentPrizes = tournamentPrizes;
     _dropFundsFactory = dropFundsFactory;
     zoraNftCreator = nftCreator;
 
-    maxAmountDuelsByReign = 1;
+    maxNumberDuelsByReign = 1;
     openEditionPrice = 0.00060 ether;
+
+    _initializeOwner(msg.sender);
   }
   
 
@@ -88,7 +90,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     string calldata description
   ) external onlyKing {
 
-    if (_reigns[_reignId].amountDuels == maxAmountDuelsByReign) revert MaxAmountOfDuelsReachedError();
+    if (_reigns[_reignId].numberDuels == maxNumberDuelsByReign) revert MaxNumberDuelsReachedError();
 
     address dropProceeds = _dropFundsFactory.deployDuelistDropFunds(
       _reignId,
@@ -101,10 +103,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     duel.dropProceeds = dropProceeds;
     duel.entryStart = uint64(block.timestamp);
     duel.entryEnd = _reigns[_reignId].entryDeadline;
-    duel.duelStage = DuelStage.AwaitingSubmissions;
 
     _duels[_reignId][_duelId] = duel;
-    _reigns[_reignId].amountDuels += 1;
+    _reigns[_reignId].numberDuels += 1;
 
     emit DuelCreated({
       duelId: _duelId,
@@ -140,16 +141,13 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     */
 
-    uint64 reignEnd = _reigns[_reignId].reignEnd;
+    Reign memory oldReign = _reigns[_reignId];
 
-    if (block.timestamp < reignEnd) revert NotTimeForNewKingError();
-    if (msg.sender == _reigns[_reignId].kingAddress) revert CannotCrownYourselfError();
+    if (block.timestamp < oldReign.reignEnd) revert NotTimeForNewKingError();
+    if (msg.sender == oldReign.kingAddress) revert CannotCrownYourselfError();
 
-    //24hours and has successor
-    address successor = _reigns[_reignId].successorAddress;
-
-    if ((block.timestamp > reignEnd && block.timestamp < reignEnd + 24 hours) && successor != address(0)) {
-      if (msg.sender != successor) revert NotSuccessorError();
+    if ((block.timestamp > oldReign.reignEnd && block.timestamp < oldReign.reignEnd + 24 hours) && oldReign.successorAddress != address(0)) {
+      if (msg.sender != oldReign.successorAddress) revert NotSuccessorError();
     }
 
     Reign memory reign;
@@ -162,9 +160,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     _mint(msg.sender, ++_tokenId);
 
-    emit CrownedNewKing({
+    emit NewKingCrowned({
       reignId: _reignId,
-      oldKing: _reigns[_reignId-1].kingAddress,
+      oldKing: oldReign.kingAddress,
       newKing: msg.sender
     });
   }
@@ -180,7 +178,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
     if (block.timestamp > duel.entryEnd) revert DuelEntryDeadlineReachedError();
 
-    if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (duel.finished) revert DuelFinishedError();
     if (address(_duelSubmissions[duelId][msg.sender]) != address(0)) revert AlreadySubmittedError();
 
     ERC721Drop drop = ERC721Drop(
@@ -190,7 +188,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           symbol: symbol,
           editionSize: type(uint64).max,
           royaltyBPS: 0,
-          fundsRecipient: payable(duel.dropProceeds), //CHANGE FOR A DEPLOYED FUNDS CONTRACT SPECIFIC FOR THIS DUEL (implementation)
+          fundsRecipient: payable(duel.dropProceeds),
           defaultAdmin: msg.sender,
           saleConfig: IERC721Drop.SalesConfiguration({
             publicSalePrice: uint104(openEditionPrice),
@@ -204,7 +202,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           description: description,
           animationURI: "",
           imageURI: uri,
-          createReferral: address(this) //put my own addres
+          createReferral: owner() //put my own addres
         })
       )
     );
@@ -219,7 +217,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       _reigns[_reignId].kingAddress,
       1,
       "",
-      address(this) //mintReferral
+      owner() //mintReferral
     );
 
     emit DuelEntrySubmitted({
@@ -232,10 +230,10 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function finishDuel(uint256 reignId, uint256 duelId) external {
     Duel storage duel = _duels[reignId][duelId];
 
-    if (duel.duelStage == DuelStage.Finished) revert DuelFinishedError();
+    if (duel.finished) revert DuelFinishedError();
     if (block.timestamp < duel.entryEnd) revert NotFinishTimeError();
 
-    duel.duelStage = DuelStage.Finished;
+    duel.finished = true;
 
     uint256 maxTotalSupply;
     uint256 leaderCount;
@@ -258,20 +256,19 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
         _duelists[duel.participants[i]].totalDuelWins += 1;
         emit DuelFinished({
           duelist: duel.participants[i],
-          prize: 0,
           duelId: duelId
         });
       }
     }
   }
 
-  function pickSuccessor(address successor) external onlyKing {
+  function addSuccessor(address successor) external onlyKing {
     if (successor == address(0)) revert AddressCannotBeZeroError();
     if (successor == _reigns[_reignId].kingAddress) revert CannotCrownYourselfError();
 
     _reigns[_reignId].successorAddress = successor;
 
-    emit PickedSuccessor({
+    emit SuccessorAdded({
       reignId: _reignId,
       successor: successor
     });
@@ -315,22 +312,17 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
 
   function updateOpenEditionPrice(uint256 newPrice) external onlyOwner {
     openEditionPrice = newPrice;
+
+    emit OpenEditionPriceUpdated();
   }
 
-  function updateMaxAmountDuels(uint256 newAmount) external onlyOwner {
-    maxAmountDuelsByReign = newAmount;
-  }
+  function updateMaxNumberDuels(uint256 newNumber) external onlyOwner {
+    maxNumberDuelsByReign = newNumber;
 
-  //CHANGE ADDRESS
-  function withdrawFees() external onlyOwner {
-    (bool sent, ) = payable(msg.sender).call{value: address(this).balance}("");
-    require(sent, "Withdraw fees error");
+    emit MaxNumberDuelsUpdated();
   }
 
   function isKing(address user) public view returns (bool) {
     return user == _reigns[_reignId].kingAddress;
   }
-
-
-
 }
