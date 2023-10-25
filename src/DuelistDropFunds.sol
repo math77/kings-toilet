@@ -38,6 +38,10 @@ contract DuelistDropFunds is Initializable, IDuelistDropFunds {
       revert YouArePoorSorry();
     }
 
+    bool finished = kingsToiletContract.duelDetails(reignId, duelId).finished;
+
+    if (!finished) revert();
+
     address[] memory winners = kingsToiletContract.duelDetails(reignId, duelId).winners;
     address kingAddress = kingsToiletContract.reignDetails(reignId).kingAddress;
 

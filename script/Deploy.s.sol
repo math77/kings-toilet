@@ -20,8 +20,8 @@ contract Deploy is Script {
 
     vm.startBroadcast(deployer);
 
-    kingsToilet kingsToilet = new KingsToilet();
-    KingsToiletPrizes prizes = new KingsToiletPrizes();
+    //KingsToilet kingsToilet = new KingsToilet();
+    //KingsToiletPrizes prizes = new KingsToiletPrizes();
     
 
 
