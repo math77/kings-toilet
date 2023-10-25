@@ -4,12 +4,12 @@ pragma solidity 0.8.17;
 import {ERC1155} from "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import {Ownable} from "solady/src/auth/Ownable.sol";
 
-import {Tournament} from "./Tournament.sol";
+import {KingsToilet} from "./KingsToilet.sol";
 
 
-contract TournamentPrizes is ERC1155, Ownable {
+contract KingsToiletPrizes is ERC1155, Ownable {
 
-  Tournament private _tournamentContract;
+  KingsToilet private _kingsToiletContract;
 
   mapping(uint256 => string) private _uris;
 
@@ -18,20 +18,20 @@ contract TournamentPrizes is ERC1155, Ownable {
     uint256 duelId, 
     uint256 reignId
   );
-  event TournamentContractUpdated();
+  event KingsToiletContractUpdated();
 
-  error CallerNotTournamentContractError();
+  error CallerNotKingsToiletContractError();
   error URICannotBeEmptyError();
   error NotTheKingError();
   error DuelFinishedError();
 
-  modifier onlyTournament() { 
-    if(msg.sender != address(_tournamentContract)) revert CallerNotTournamentContractError(); 
+  modifier onlyKingsToilet() { 
+    if(msg.sender != address(_kingsToiletContract)) revert CallerNotKingsToiletContractError(); 
     _; 
   }
 
   modifier onlyKing() {
-    if (!_tournamentContract.isKing(msg.sender)) revert NotTheKingError();
+    if (!_kingsToiletContract.isKing(msg.sender)) revert NotTheKingError();
     _;
   }
   
@@ -39,15 +39,15 @@ contract TournamentPrizes is ERC1155, Ownable {
     _initializeOwner(msg.sender);
   }
 
-  function mint(address user, uint256 id, uint256 amount) external onlyTournament {
+  function mint(address user, uint256 id, uint256 amount) external onlyKingsToilet {
     _mint(user, id, amount, "");
   }
 
 
   function addDuelPrize(uint256 duelId, string calldata imageURI) external onlyKing {
-    uint256 reignId = _tournamentContract.currentReignId();
+    uint256 reignId = _kingsToiletContract.currentReignId();
 
-    if (_tournamentContract.duelDetails(reignId, duelId).finished) revert DuelFinishedError();
+    if (_kingsToiletContract.duelDetails(reignId, duelId).finished) revert DuelFinishedError();
     if (bytes(imageURI).length == 0) revert URICannotBeEmptyError();
     
     _uris[duelId] = imageURI;
@@ -58,10 +58,10 @@ contract TournamentPrizes is ERC1155, Ownable {
     });
   }
 
-  function setTournamentAddress(Tournament tournament) external onlyOwner {
-    _tournamentContract = tournament;
+  function setKingsToiletAddress(KingsToilet kingsToilet) external onlyOwner {
+    _kingsToiletContract = kingsToilet;
 
-    emit TournamentContractUpdated();
+    emit KingsToiletContractUpdated();
   }
 
   function uri(uint256 id) public view override returns (string memory) {

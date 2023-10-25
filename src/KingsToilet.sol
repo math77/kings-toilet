@@ -12,20 +12,20 @@ import {ZoraNFTCreatorV1} from "zora/src/ZoraNFTCreatorV1.sol";
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 import {LibString} from "solady/src/utils/LibString.sol";
 
-import {TournamentPrizes} from "./TournamentPrizes.sol";
+import {KingsToiletPrizes} from "./KingsToiletPrizes.sol";
 import {DuelistDropFundsFactory} from "./DuelistDropFundsFactory.sol";
 
-import {ITournament} from "./interfaces/ITournament.sol";
+import {IKingsToilet} from "./interfaces/IKingsToilet.sol";
 
 
-contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
+contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
 
   uint256 private _tokenId;
   uint256 private _duelId;
   uint256 private _reignId;
 
   ZoraNFTCreatorV1 public immutable zoraNftCreator;  
-  TournamentPrizes private _tournamentPrizes;
+  KingsToiletPrizes private _kingsToiletPrizes;
   DuelistDropFundsFactory private _dropFundsFactory;
 
   uint256 public openEditionPrice;
@@ -45,12 +45,10 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   fallback() external payable {}
 
   constructor(
-    TournamentPrizes tournamentPrizes,
-    DuelistDropFundsFactory dropFundsFactory,
+    KingsToiletPrizes kingsToiletPrizes,
     ZoraNFTCreatorV1 nftCreator
-  ) ERC721("TOURNAMENT", "TOURNAMENT") {
-    _tournamentPrizes = tournamentPrizes;
-    _dropFundsFactory = dropFundsFactory;
+  ) ERC721("KINGS TOILET", "KINGSTOILET") {
+    _kingsToiletPrizes = kingsToiletPrizes;
     zoraNftCreator = nftCreator;
 
     maxNumberDuelsByReign = 1;
@@ -146,7 +144,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     if (block.timestamp < oldReign.reignEnd) revert NotTimeForNewKingError();
     if (msg.sender == oldReign.kingAddress) revert CannotCrownYourselfError();
 
-    if ((block.timestamp > oldReign.reignEnd && block.timestamp < oldReign.reignEnd + 24 hours) && oldReign.successorAddress != address(0)) {
+    if ((block.timestamp > oldReign.reignEnd && block.timestamp < oldReign.reignEnd + 36 hours) && oldReign.successorAddress != address(0)) {
       if (msg.sender != oldReign.successorAddress) revert NotSuccessorError();
     }
 
@@ -171,7 +169,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     uint256 duelId,
     string memory name,
     string memory symbol, 
-    string memory uri, 
+    string memory imageURI, 
     string memory description
   ) external onlyDuelist {
     Duel storage duel = _duels[_reignId][duelId];
@@ -189,7 +187,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           editionSize: type(uint64).max,
           royaltyBPS: 0,
           fundsRecipient: payable(duel.dropProceeds),
-          defaultAdmin: msg.sender,
+          defaultAdmin: address(this),
           saleConfig: IERC721Drop.SalesConfiguration({
             publicSalePrice: uint104(openEditionPrice),
             maxSalePurchasePerAddress: type(uint32).max,
@@ -201,8 +199,8 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
           }),
           description: description,
           animationURI: "",
-          imageURI: uri,
-          createReferral: owner() //put my own addres
+          imageURI: imageURI,
+          createReferral: owner()
         })
       )
     );
@@ -236,7 +234,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     duel.finished = true;
 
     uint256 maxTotalSupply;
-    uint256 leaderCount;
+    //uint256 leaderCount;
 
     uint256[] memory supplies = new uint256[](duel.participants.length);
     for (uint256 i; i < duel.participants.length; i++) {
@@ -244,9 +242,9 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       supplies[i] = drop.totalSupply();      
       if (supplies[i] > maxTotalSupply) {
         maxTotalSupply = supplies[i];
-        leaderCount = 1;
+        //leaderCount = 1;
       } else if (supplies[i] == maxTotalSupply) {
-        leaderCount++;
+        //leaderCount++;
       }
     }
 
@@ -254,6 +252,10 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
       if (supplies[i] == maxTotalSupply) {
         duel.winners[i] = duel.participants[i];
         _duelists[duel.participants[i]].totalDuelWins += 1;
+
+        //mint winner nft
+        _kingsToiletPrizes.mint(duel.participants[i], duelId, 1);
+
         emit DuelFinished({
           duelist: duel.participants[i],
           duelId: duelId
@@ -302,12 +304,7 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
   function tokenURI(uint256 tokenId) public view override returns (string memory) {
     _requireMinted(tokenId);
 
-    return "";
-  }
-
-
-  function contractURI() public view returns (string memory) {
-    return "ipfs://";
+    return "ipfs://bafkreicwjb4knvsb5jskoq6kuyzctftctcmswjhpo2dwawcntsblh2evia";
   }
 
   function updateOpenEditionPrice(uint256 newPrice) external onlyOwner {
@@ -320,6 +317,29 @@ contract Tournament is ITournament, ERC721, ReentrancyGuard, Ownable {
     maxNumberDuelsByReign = newNumber;
 
     emit MaxNumberDuelsUpdated();
+  }
+
+  function setDropFundsFactoryAddress(DuelistDropFundsFactory newAddress) external onlyOwner {
+    _dropFundsFactory = newAddress;
+  }
+
+  function setFirstKing(address king) external onlyOwner {
+    if (_reignId > 1) revert();
+
+    Reign memory reign;
+    reign.kingAddress = king;
+    reign.reignStart = uint64(block.timestamp);
+    reign.reignEnd = uint64(block.timestamp + 7 days);
+    reign.entryDeadline = uint64(block.timestamp + 5 days);
+
+    _reigns[++_reignId] = reign;
+
+    _mint(king, ++_tokenId);
+
+    emit FirstKingCrowned({
+      reignId: _reignId,
+      king: king
+    });
   }
 
   function isKing(address user) public view returns (bool) {

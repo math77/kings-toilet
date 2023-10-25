@@ -6,13 +6,13 @@ import {Initializable} from "openzeppelin-contracts/contracts/proxy/utils/Initia
 import {ProtocolRewards} from "@zoralabs/protocol-rewards/src/ProtocolRewards.sol";
 
 import {IDuelistDropFunds} from "./interfaces/IDuelistDropFunds.sol";
-import {Tournament} from "./Tournament.sol";
+import {KingsToilet} from "./KingsToilet.sol";
 
 
 contract DuelistDropFunds is Initializable, IDuelistDropFunds {
 
   ProtocolRewards public rewardsContract;
-  Tournament public tournamentContract;
+  KingsToilet public kingsToiletContract;
 
   uint256 public reignId;
   uint256 public duelId;
@@ -20,10 +20,15 @@ contract DuelistDropFunds is Initializable, IDuelistDropFunds {
   receive() external payable {}
   fallback() external payable {}
 
-  function initialize(uint256 _reignId, uint256 _duelId) external initializer {
+  function initialize(
+    uint256 _reignId, 
+    uint256 _duelId,
+    address payable _kingsToiletContract
+  ) external initializer {
     reignId = _reignId;
     duelId = _duelId;
     rewardsContract = ProtocolRewards(0x7777777F279eba3d3Ad8F4E708545291A6fDBA8B);
+    kingsToiletContract = KingsToilet(_kingsToiletContract);
   }
 
   function withdrawFunds() external {
@@ -33,8 +38,8 @@ contract DuelistDropFunds is Initializable, IDuelistDropFunds {
       revert YouArePoorSorry();
     }
 
-    address[] memory winners = tournamentContract.duelDetails(reignId, duelId).winners;
-    address kingAddress = tournamentContract.reignDetails(reignId).kingAddress;
+    address[] memory winners = kingsToiletContract.duelDetails(reignId, duelId).winners;
+    address kingAddress = kingsToiletContract.reignDetails(reignId).kingAddress;
 
     rewardsContract.withdraw(address(this), amountAvailable);
 
@@ -42,8 +47,8 @@ contract DuelistDropFunds is Initializable, IDuelistDropFunds {
     uint256 prize = (address(this).balance - kingPayment) / winners.length;
 
 
-    (bool success,) = kingAddress.call{value: kingPayment}("");
-    if (!success) revert();
+    (bool successKing,) = kingAddress.call{value: kingPayment}("");
+    if (!successKing) revert();
 
     for (uint256 i; i < winners.length; i++) {
       (bool success,) = winners[i].call{value: prize}("");

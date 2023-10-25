@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
 import {ERC721Drop} from "zora/src/ERC721Drop.sol";
 
-interface ITournament {
+interface IKingsToilet {
 
   struct Reign {
     address kingAddress;
@@ -33,7 +33,12 @@ interface ITournament {
 
   /* EVENTS */
 
-  event DuelistAdded(address duelist);
+  event FirstKingCrowned(
+    uint256 indexed reignId,
+    address indexed king
+  );
+
+  event DuelistAdded(address indexed duelist);
 
   event DuelCreated(
     uint256 indexed duelId,
@@ -51,9 +56,9 @@ interface ITournament {
   );
 
   event DuelEntrySubmitted(
-    address duelist,
+    address indexed duelist,
     ERC721Drop dropAddress,
-    uint256 duelId
+    uint256 indexed duelId
   );
 
   event NewKingCrowned(
@@ -105,7 +110,7 @@ interface ITournament {
     uint256 duelId, 
     string memory name,
     string memory symbol,
-    string memory uri, 
+    string memory imageURI, 
     string memory description
   ) external;
 

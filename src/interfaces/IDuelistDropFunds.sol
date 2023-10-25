@@ -9,7 +9,8 @@ interface IDuelistDropFunds {
 
   function initialize(
     uint256 reignId,
-    uint256 duelId
+    uint256 duelId,
+    address payable kingsToiletContract
   ) external;
 
   function withdrawFunds() external;
