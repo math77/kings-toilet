@@ -83,6 +83,8 @@ interface IKingsToilet {
 
   error NotADuelistError();
 
+  error DuelistCannotBeKingError();
+
   error InvalidDuelError();
 
   error InvalidReignError();

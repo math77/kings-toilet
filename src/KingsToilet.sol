@@ -130,6 +130,7 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
 
     if (block.timestamp < oldReign.reignEnd) revert NotTimeForNewKingError();
     if (msg.sender == oldReign.kingAddress) revert CannotCrownYourselfError();
+    if (_duelists[msg.sender].allowed) revert DuelistCannotBeKingError();
 
     if ((block.timestamp > oldReign.reignEnd && block.timestamp < oldReign.reignEnd + 36 hours) && oldReign.successorAddress != address(0)) {
       if (msg.sender != oldReign.successorAddress) revert NotSuccessorError();
@@ -249,6 +250,7 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
 
   function addSuccessor(address successor) external onlyKing {
     if (successor == address(0)) revert AddressCannotBeZeroError();
+    if (_duelists[successor].allowed) revert DuelistCannotBeKingError();
     if (successor == _reigns[_reignId].kingAddress) revert CannotCrownYourselfError();
 
     _reigns[_reignId].successorAddress = successor;
