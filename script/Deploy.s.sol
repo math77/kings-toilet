@@ -20,10 +20,25 @@ contract Deploy is Script {
 
     vm.startBroadcast(deployer);
 
-    //KingsToilet kingsToilet = new KingsToilet();
-    //KingsToiletPrizes prizes = new KingsToiletPrizes();
+    KingsToiletPrizes prizes = new KingsToiletPrizes();
+    zoraNFTCreatorV1 = ZoraNFTCreatorV1(0x489f8fFbd5f5eA8875c2EbC5CA9ED1214BD77F42);
+
+    KingsToilet kingsToilet = new KingsToilet(
+      prizes,
+      zoraNFTCreatorV1
+    );
+
+    DuelistDropFunds dropFunds = new DuelistDropFunds();
     
 
+    DuelistDropFundsFactory dropFundsFactory = new DuelistDropFundsFactory(address(dropFunds), address(kingsToilet));
 
+    kingsToilet.setDropFundsFactoryAddress(dropFundsFactory);
+
+    console2.log("--------- CONTRACTS ADDRESSES ---------");
+    console2.log(address(prizes));
+    console2.log(address(kingsToilet));
+    console2.log(address(dropFunds));
+    console2.log(address(dropFundsFactory));
   }
 }
