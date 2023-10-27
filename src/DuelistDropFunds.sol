@@ -31,6 +31,7 @@ contract DuelistDropFunds is Initializable, IDuelistDropFunds {
     kingsToiletContract = KingsToilet(_kingsToiletContract);
   }
 
+  //king gets 10% and the duelist(s) (party) gets 90%
   function withdrawFunds() external {
     uint256 amountAvailable = rewardsContract.balanceOf(address(this));
 

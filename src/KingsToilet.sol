@@ -111,19 +111,6 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
     });
   }
 
-  /*
-
-    Each reign lasts 7 days
-    The duelists have 5 days of battle to challenge
-    and send submissions for their challenges
-    The king can judge the submissions as they come in
-    and +2 days to judge the remaining submissions
-
-
-    After the reign current time is over the week prize is available to claim
-
-  */
-
   function crownTheKing() external {
 
     /*
@@ -131,7 +118,7 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
       HOW TO DEAL WITH SUCCESSION AND TAKING THE THRONE?
       
       each king determines a successor during his reign
-      after the current king's reign is over the successor has 24 hours
+      after the current king's reign is over the successor has 36 hours
       to claim the throne (if there is a definite successor)
       if he does not claim the throne, the throne is open for anyone to
       take
@@ -234,7 +221,6 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
     duel.finished = true;
 
     uint256 maxTotalSupply;
-    //uint256 leaderCount;
 
     uint256[] memory supplies = new uint256[](duel.participants.length);
     for (uint256 i; i < duel.participants.length; i++) {
@@ -242,9 +228,6 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
       supplies[i] = drop.totalSupply();      
       if (supplies[i] > maxTotalSupply) {
         maxTotalSupply = supplies[i];
-        //leaderCount = 1;
-      } else if (supplies[i] == maxTotalSupply) {
-        //leaderCount++;
       }
     }
 

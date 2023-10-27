@@ -46,8 +46,8 @@ interface IKingsToilet {
   );
 
   event DuelFinished(
-    address duelist,
-    uint256 duelId
+    address indexed duelist,
+    uint256 indexed duelId
   );
 
   event SuccessorAdded(
@@ -103,6 +103,8 @@ interface IKingsToilet {
 
   error MaxNumberDuelsReachedError();
 
+
+  /* FUNCTIONS */
 
   function setDuelists(address[] memory duelists) external;
 
