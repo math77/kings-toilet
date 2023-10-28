@@ -21,7 +21,7 @@ contract Deploy is Script {
     vm.startBroadcast(deployer);
 
     KingsToiletPrizes prizes = new KingsToiletPrizes();
-    zoraNFTCreatorV1 = ZoraNFTCreatorV1(0x489f8fFbd5f5eA8875c2EbC5CA9ED1214BD77F42);
+    ZoraNFTCreatorV1 zoraNFTCreatorV1 = ZoraNFTCreatorV1(0x489f8fFbd5f5eA8875c2EbC5CA9ED1214BD77F42);
 
     KingsToilet kingsToilet = new KingsToilet(
       prizes,
