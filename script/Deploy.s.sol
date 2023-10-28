@@ -16,7 +16,7 @@ contract Deploy is Script {
   function run() public {
     console2.log("Setup contracts ---");
     
-    address deployer = vm.envAddress("DEPLOYER_KEY");
+    uint256 deployer = vm.envUint("DEPLOYER_KEY");
 
     vm.startBroadcast(deployer);
 
@@ -34,11 +34,14 @@ contract Deploy is Script {
     DuelistDropFundsFactory dropFundsFactory = new DuelistDropFundsFactory(address(dropFunds), address(kingsToilet));
 
     kingsToilet.setDropFundsFactoryAddress(dropFundsFactory);
+    prizes.setKingsToiletAddress(kingsToilet);
 
     console2.log("--------- CONTRACTS ADDRESSES ---------");
     console2.log(address(prizes));
     console2.log(address(kingsToilet));
     console2.log(address(dropFunds));
     console2.log(address(dropFundsFactory));
+
+    vm.stopBroadcast();
   }
 }

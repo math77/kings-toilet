@@ -11,4 +11,7 @@ fs_permissions = [{ access = "read", path = "./"}]
 base = "https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}"
 base_goerli = "https://base-goerli.g.alchemy.com/v2/${ALCHEMY_KEY}"
 
+[etherscan]
+base_goerli = { key = "${ETHERSCAN_API_KEY}" }
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

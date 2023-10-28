@@ -65,6 +65,7 @@ contract KingsToiletTest is Test {
   error Unauthorized();
   error NotTimeForNewKingError();
   error NotSuccessorError();
+  error DuelistCannotBeKingError();
 
   receive() external payable {}
 
@@ -137,6 +138,13 @@ contract KingsToiletTest is Test {
     vm.startPrank(king);
     vm.expectRevert(abi.encodeWithSelector(CannotCrownYourselfError.selector));
     kingsToilet.addSuccessor(king);
+    vm.stopPrank();
+  }
+
+  function testAddSuccessorCannotBeDuelist() public {
+    vm.startPrank(king);
+    vm.expectRevert(abi.encodeWithSelector(DuelistCannotBeKingError.selector));
+    kingsToilet.addSuccessor(duelist1);
     vm.stopPrank();
   }
 
@@ -233,6 +241,14 @@ contract KingsToiletTest is Test {
     vm.startPrank(king);
     vm.warp(block.timestamp + 7 days + 4 hours);
     vm.expectRevert(abi.encodeWithSelector(CannotCrownYourselfError.selector));
+    kingsToilet.crownTheKing();
+    vm.stopPrank();
+  }
+
+  function testCrownTheKingCannotBeDuelist() public {
+    vm.startPrank(duelist1);
+    vm.warp(block.timestamp + 7 days + 4 hours);
+    vm.expectRevert(abi.encodeWithSelector(DuelistCannotBeKingError.selector));
     kingsToilet.crownTheKing();
     vm.stopPrank();
   }
