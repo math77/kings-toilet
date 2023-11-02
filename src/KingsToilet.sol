@@ -240,7 +240,6 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
       for (uint256 i; i < duel.participants.length; i++) {
         if (supplies[i] == maxTotalSupply) {
           duel.winners.push(duel.participants[i]);
-          //duel.winners[i] = duel.participants[i];
           _duelists[duel.participants[i]].totalDuelWins += 1;
 
           //mint winner nft
