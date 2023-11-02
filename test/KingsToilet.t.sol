@@ -7,19 +7,24 @@ import {KingsToilet} from "../src/KingsToilet.sol";
 import {KingsToiletPrizes} from "../src/KingsToiletPrizes.sol";
 import {DuelistDropFundsFactory} from "../src/DuelistDropFundsFactory.sol";
 import {DuelistDropFunds} from "../src/DuelistDropFunds.sol";
+import {IDuelistDropFunds} from "../src/interfaces/IDuelistDropFunds.sol";
+
 import {ZoraNFTCreatorV1} from "zora/src/ZoraNFTCreatorV1.sol";
 import {ERC721Drop} from "zora/src/ERC721Drop.sol";
-
+import {ProtocolRewards} from "@zoralabs/protocol-rewards/src/ProtocolRewards.sol";
 import {IKingsToilet} from "../src/interfaces/IKingsToilet.sol";
+import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
 
 import "forge-std/console.sol";
 
+//NEVER DO THIS MONOLITHIC :)
 contract KingsToiletTest is Test {
   KingsToilet public kingsToilet;
   KingsToiletPrizes public prizes;
   DuelistDropFunds public dropFunds;
   DuelistDropFundsFactory public dropFundsFactory;
   ZoraNFTCreatorV1 public zoraNFTCreatorV1;
+  ProtocolRewards public rewardsContract;
 
 
   ERC721Drop public dropp;
@@ -27,18 +32,25 @@ contract KingsToiletTest is Test {
 
   address duelist1 = address(1234);
   address duelist2 = address(5678);
+  address duelist3 = address(1111);
 
   address king = address(9234);
+
   address user1 = address(4312);
   address user2 = address(1409);
   address user3 = address(7712);
+  address user4 = address(7971);
 
-  address[] duelists = [duelist1];
+  address[] duelists = [duelist1, duelist2, duelist3];
 
   event DuelistAdded(address indexed duelist);
   event DuelCreated(
     uint256 indexed duelId,
     uint256 indexed reignId
+  );
+  event DuelFinished(
+    address indexed duelist,
+    uint256 indexed duelId
   );
   event SuccessorAdded(
     uint256 indexed reignId,
@@ -58,7 +70,16 @@ contract KingsToiletTest is Test {
   event OpenEditionPriceUpdated();
   event MaxNumberDuelsUpdated();
 
+  event DuelPrizeAdded(
+    uint256 duelId, 
+    uint256 reignId
+  );
+  event KingsToiletContractUpdated();
+
+  error CallerNotKingsToiletContractError();
+  error URICannotBeEmptyError();
   error NotTheKingError();
+
   error MaxNumberDuelsReachedError();
   error AddressCannotBeZeroError();
   error CannotCrownYourselfError();
@@ -85,11 +106,17 @@ contract KingsToiletTest is Test {
 
     dropFundsFactory = new DuelistDropFundsFactory(address(dropFunds), address(kingsToilet));
 
+    rewardsContract = ProtocolRewards(0x7777777F279eba3d3Ad8F4E708545291A6fDBA8B);
+
     kingsToilet.setDropFundsFactoryAddress(dropFundsFactory);
     kingsToilet.setFirstKing(king);
     kingsToilet.setDuelists(duelists);
 
+    prizes.setKingsToiletAddress(kingsToilet);
+
     vm.deal(address(kingsToilet), 1 ether);
+    vm.deal(user3, 5 ether);
+    vm.deal(user4, 4 ether);
   }
 
   function testSetDuelists() public {
@@ -316,5 +343,323 @@ contract KingsToiletTest is Test {
   function testReignDetails() public {
     IKingsToilet.Reign memory result = kingsToilet.reignDetails(1);
     console.log(StdStyle.blue(result.kingAddress));
+  }
+
+  function testMintDrop() public {
+    
+    /* CREATE DUEL */
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY */
+    vm.startPrank(duelist1);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist1,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name",
+      "symbol",
+      "uri",
+      "description"
+    );
+    vm.stopPrank();
+
+
+    /* GET SUBMISSION DROP ADDRESS */
+    ERC721Drop dropAddress = kingsToilet.duelSubmission(1, duelist1);
+
+    uint256 toPay = (3 * 0.00060 ether) + (3 * 0.000777 ether);
+
+    /* MINT SOME TOKENS */
+    vm.startPrank(user3);
+    dropAddress.purchase{value: toPay}(3);
+    vm.stopPrank();
+
+    IERC721Drop.AddressMintDetails memory result = dropAddress.mintedPerAddress(user3);
+    assertEq(result.publicMints, 3);
+  }
+
+
+  function testFinishDuel() public {
+
+    /* CREATE DUEL */
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY */
+    vm.startPrank(duelist1);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist1,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name",
+      "symbol",
+      "uri",
+      "description"
+    );
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY 2 */
+    vm.startPrank(duelist2);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist2,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name2",
+      "symbol2",
+      "uri2",
+      "description2"
+    );
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY 3 */
+    vm.startPrank(duelist3);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist3,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name3",
+      "symbol3",
+      "uri3",
+      "description3"
+    );
+    vm.stopPrank();
+
+
+    IKingsToilet.Duel memory result = kingsToilet.duelDetails(1, 1);
+    console.log("PARTICIPANTS");
+
+    for (uint256 i; i < result.participants.length; i++) {
+      console.log(StdStyle.blue(result.participants[i]));
+    }
+    
+
+    /* GET SUBMISSION DROP ADDRESS */
+    ERC721Drop dropAddress = kingsToilet.duelSubmission(1, duelist1);
+    ERC721Drop dropAddress2 = kingsToilet.duelSubmission(1, duelist2);
+    ERC721Drop dropAddress3 = kingsToilet.duelSubmission(1, duelist3);
+
+    uint256 toPay = (3 * 0.00060 ether) + (3 * 0.000777 ether);
+
+    /* MINT SOME TOKENS */
+    vm.startPrank(user3);
+    dropAddress.purchase{value: toPay}(3);
+    vm.stopPrank();
+
+    /* MINT SOME TOKENS */
+    vm.startPrank(user4);
+    dropAddress2.purchase{value: toPay}(3);
+    dropAddress3.purchase{value:  0.00060 ether + 0.000777 ether}(1);
+    vm.stopPrank();
+
+
+    /* FINISH DUEL */
+
+    vm.warp(block.timestamp + 7 days + 10 hours);
+
+    for (uint256 i; i < 2; i++) {
+      vm.expectEmit();
+      emit DuelFinished(duelists[i], 1);
+    }
+
+    kingsToilet.finishDuel(1, 1);
+
+    IKingsToilet.Duel memory result2 = kingsToilet.duelDetails(1, 1);
+
+    console.log("WINNERS");
+    for (uint256 i; i < result2.winners.length; i++) {
+      console.log(StdStyle.blue(result2.winners[i]));
+    }
+
+    assertEq(result2.finished, true);
+  }
+
+  function testWithdrawPrize() public {
+    /* CREATE DUEL */
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY */
+    vm.startPrank(duelist1);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist1,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name",
+      "symbol",
+      "uri",
+      "description"
+    );
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY 2 */
+    vm.startPrank(duelist2);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist2,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name2",
+      "symbol2",
+      "uri2",
+      "description2"
+    );
+    vm.stopPrank();
+
+    /* SUBMIT DUEL ENTRY 3 */
+    vm.startPrank(duelist3);
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist3,
+      dropp,
+      1
+    );
+    kingsToilet.submitDuelEntry(
+      1,
+      "name3",
+      "symbol3",
+      "uri3",
+      "description3"
+    );
+    vm.stopPrank();
+
+    /* GET SUBMISSION DROP ADDRESS */
+    ERC721Drop dropAddress = kingsToilet.duelSubmission(1, duelist1);
+    ERC721Drop dropAddress2 = kingsToilet.duelSubmission(1, duelist2);
+    ERC721Drop dropAddress3 = kingsToilet.duelSubmission(1, duelist3);
+
+    uint256 toPay = (6 * 0.00060 ether) + (6 * 0.000777 ether);
+
+    /* MINT SOME TOKENS */
+    vm.startPrank(user3);
+    dropAddress.purchase{value: toPay}(6);
+    vm.stopPrank();
+
+    /* MINT SOME TOKENS */
+    vm.startPrank(user4);
+    //dropAddress2.purchase{value: toPay}(3);
+    dropAddress3.purchase{value:  0.00060 ether + 0.000777 ether}(1);
+    vm.stopPrank();
+
+
+    /* FINISH DUEL */
+
+    vm.warp(block.timestamp + 7 days + 10 hours);
+
+    for (uint256 i; i < 1; i++) {
+      vm.expectEmit();
+      emit DuelFinished(duelists[i], 1);
+    }
+
+    kingsToilet.finishDuel(1, 1);
+
+    IKingsToilet.Duel memory result = kingsToilet.duelDetails(1, 1);
+
+    address dropProceeds = result.dropProceeds;
+
+
+    console.log("PROCEEDS TOTAL AMOUNT");
+    uint256 amount = rewardsContract.balanceOf(dropProceeds);
+    console.log(amount);
+
+    console.log("PREVIOUS BALANCES");
+    console.log(duelist1.balance);
+    console.log(duelist2.balance);
+    console.log(king.balance);
+
+    IDuelistDropFunds(dropProceeds).withdrawFunds();
+
+    console.log("NEW BALANCES");
+    console.log(duelist1.balance);
+    console.log(duelist2.balance);
+    console.log(king.balance);
+  }
+
+  function testAddNFTPrize() public {
+
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+
+    vm.expectEmit();
+    emit DuelPrizeAdded(1, 1);
+    prizes.addDuelPrize(1, "uri");
+    vm.stopPrank();
+  }
+
+  function testAddNFTPrizeRevertFinished() public {
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+
+    vm.expectEmit();
+    emit DuelPrizeAdded(1, 1);
+    prizes.addDuelPrize(1, "uri");
+
+    vm.warp(block.timestamp + 7 days + 10 hours);
+
+    vm.expectEmit();
+    emit DuelFinished(address(0), 1);
+    kingsToilet.finishDuel(1, 1);
+
+    vm.expectRevert(abi.encodeWithSelector(DuelFinishedError.selector));
+    prizes.addDuelPrize(1, "uri");
+    vm.stopPrank();
+  }
+
+  function testAddNFTPrizeRevertURICannotBeEmpty() public {
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+
+    vm.expectRevert(abi.encodeWithSelector(URICannotBeEmptyError.selector));
+    prizes.addDuelPrize(1, "");
+    vm.stopPrank();
+  }
+
+  function testAddNFTPrizeRevertNotTheKing() public {
+    vm.startPrank(king);
+    vm.expectEmit();
+    emit DuelCreated(1, 1);
+    kingsToilet.createDuel("Duel test", "The first duel of test.");
+    vm.stopPrank();
+
+    vm.expectRevert(abi.encodeWithSelector(NotTheKingError.selector));
+    prizes.addDuelPrize(1, "");
   }
 }

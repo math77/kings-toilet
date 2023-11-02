@@ -221,34 +221,44 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
     Duel storage duel = _duels[reignId][duelId];
 
     if (duel.finished) revert DuelFinishedError();
-    if (block.timestamp < duel.entryEnd) revert NotFinishTimeError();
+    if (block.timestamp < duel.entryEnd + 2 days) revert NotFinishTimeError();
 
     duel.finished = true;
-
     uint256 maxTotalSupply;
 
-    uint256[] memory supplies = new uint256[](duel.participants.length);
-    for (uint256 i; i < duel.participants.length; i++) {
-      ERC721Drop drop = _duelSubmissions[duelId][duel.participants[i]];
-      supplies[i] = drop.totalSupply();      
-      if (supplies[i] > maxTotalSupply) {
-        maxTotalSupply = supplies[i];
+    if (duel.participants.length > 0) { 
+
+      uint256[] memory supplies = new uint256[](duel.participants.length);
+      for (uint256 i; i < duel.participants.length; i++) {
+        ERC721Drop drop = _duelSubmissions[duelId][duel.participants[i]];
+        supplies[i] = drop.totalSupply();      
+        if (supplies[i] > maxTotalSupply) {
+          maxTotalSupply = supplies[i];
+        }
       }
-    }
 
-    for (uint256 i; i < duel.participants.length; i++) {
-      if (supplies[i] == maxTotalSupply) {
-        duel.winners[i] = duel.participants[i];
-        _duelists[duel.participants[i]].totalDuelWins += 1;
+      for (uint256 i; i < duel.participants.length; i++) {
+        if (supplies[i] == maxTotalSupply) {
+          duel.winners.push(duel.participants[i]);
+          //duel.winners[i] = duel.participants[i];
+          _duelists[duel.participants[i]].totalDuelWins += 1;
 
-        //mint winner nft
-        _kingsToiletPrizes.mint(duel.participants[i], duelId, 1);
+          //mint winner nft
+          _kingsToiletPrizes.mint(duel.participants[i], duelId, 1);
 
-        emit DuelFinished({
-          duelist: duel.participants[i],
-          duelId: duelId
-        });
+          emit DuelFinished({
+            duelist: duel.participants[i],
+            duelId: duelId
+          });
+        }
       }
+
+    } else {
+
+      emit DuelFinished({
+        duelist: address(0),
+        duelId: duelId
+      });
     }
   }
 

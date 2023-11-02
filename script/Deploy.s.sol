@@ -20,7 +20,7 @@ contract Deploy is Script {
 
     vm.startBroadcast(deployer);
 
-    KingsToiletPrizes prizes = new KingsToiletPrizes();
+    KingsToiletPrizes prizes = KingsToiletPrizes(0x1Cf125bC22ADD95fF09993FE882fC1f66Df10BF8);
     ZoraNFTCreatorV1 zoraNFTCreatorV1 = ZoraNFTCreatorV1(0x489f8fFbd5f5eA8875c2EbC5CA9ED1214BD77F42);
 
     KingsToilet kingsToilet = new KingsToilet(
@@ -28,7 +28,7 @@ contract Deploy is Script {
       zoraNFTCreatorV1
     );
 
-    DuelistDropFunds dropFunds = new DuelistDropFunds();
+    DuelistDropFunds dropFunds = DuelistDropFunds(0x27678F4B1657d8D3819a67248bA3D44aea52EAE0);
     
 
     DuelistDropFundsFactory dropFundsFactory = new DuelistDropFundsFactory(address(dropFunds), address(kingsToilet));
