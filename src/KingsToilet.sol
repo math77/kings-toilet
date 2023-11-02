@@ -198,8 +198,12 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
 
 
     drop.setOwner(msg.sender);
+
+    
+    uint256 fee = openEditionPrice + 0.000777 ether; // ZORA TOTAL_REWARD_PER_MINT
+
     //the king gets the first token
-    drop.mintWithRewards(
+    drop.mintWithRewards{value: fee}(
       _reigns[_reignId].kingAddress,
       1,
       "",

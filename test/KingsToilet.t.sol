@@ -22,12 +22,16 @@ contract KingsToiletTest is Test {
   ZoraNFTCreatorV1 public zoraNFTCreatorV1;
 
 
+  ERC721Drop public dropp;
+
+
   address duelist1 = address(1234);
   address duelist2 = address(5678);
 
   address king = address(9234);
   address user1 = address(4312);
   address user2 = address(1409);
+  address user3 = address(7712);
 
   address[] duelists = [duelist1];
 
@@ -84,6 +88,8 @@ contract KingsToiletTest is Test {
     kingsToilet.setDropFundsFactoryAddress(dropFundsFactory);
     kingsToilet.setFirstKing(king);
     kingsToilet.setDuelists(duelists);
+
+    vm.deal(address(kingsToilet), 1 ether);
   }
 
   function testSetDuelists() public {
@@ -184,17 +190,20 @@ contract KingsToiletTest is Test {
     vm.stopPrank();
   }
 
-  /*
   function testSubmitDuelEntry() public {
     vm.startPrank(king);
-    vm.expectEmit();
-    emit DuelCreated(1, 1);
+    //vm.expectEmit();
+    //emit DuelCreated(1, 1);
     kingsToilet.createDuel("Duel test", "The first duel of test.");
     vm.stopPrank();
 
     vm.startPrank(duelist1);
-    vm.expectEmit();
-    emit DuelEntrySubmitted();
+    vm.expectEmit(true, false, true, false);
+    emit DuelEntrySubmitted(
+      duelist1,
+      dropp,
+      1
+    );
     kingsToilet.submitDuelEntry(
       1,
       "name",
@@ -204,7 +213,6 @@ contract KingsToiletTest is Test {
     );
     vm.stopPrank();
   }
-  */
 
   function testUpdateOpenEditionPrice() public {
     vm.expectEmit();
