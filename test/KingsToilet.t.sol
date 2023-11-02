@@ -455,7 +455,7 @@ contract KingsToiletTest is Test {
 
 
     IKingsToilet.Duel memory result = kingsToilet.duelDetails(1, 1);
-    console.log("PARTICIPANTS");
+    console.log("PARTICIPANTS (test finish duel");
 
     for (uint256 i; i < result.participants.length; i++) {
       console.log(StdStyle.blue(result.participants[i]));
@@ -494,7 +494,7 @@ contract KingsToiletTest is Test {
 
     IKingsToilet.Duel memory result2 = kingsToilet.duelDetails(1, 1);
 
-    console.log("WINNERS");
+    console.log("WINNERS (test finish duel)");
     for (uint256 i; i < result2.winners.length; i++) {
       console.log(StdStyle.blue(result2.winners[i]));
     }
@@ -592,6 +592,11 @@ contract KingsToiletTest is Test {
     kingsToilet.finishDuel(1, 1);
 
     IKingsToilet.Duel memory result = kingsToilet.duelDetails(1, 1);
+
+    console.log("WINNERS (test withdraw prize)");
+    for (uint256 i; i < result.winners.length; i++) {
+      console.log(StdStyle.blue(result.winners[i]));
+    }
 
     address dropProceeds = result.dropProceeds;
 

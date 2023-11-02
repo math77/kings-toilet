@@ -12,10 +12,10 @@ Duel, Please the King, Win... and may become the next King?!
 
 | Contract                   | Address                                                                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Kings Toilet               | [0xA5D4Bc575CAD4A846D46919604CD789Be99B860D](https://goerli.basescan.org/address/0xa5d4bc575cad4a846d46919604cd789be99b860d) |
+| Kings Toilet               | [0x1f8974a179B096c915bcFA222308C93da71CBD56](https://goerli.basescan.org/address/0x1f8974a179B096c915bcFA222308C93da71CBD56) |
 | Kings Toilet Prizes        | [0x1Cf125bC22ADD95fF09993FE882fC1f66Df10BF8](https://goerli.basescan.org/address/0x1cf125bc22add95ff09993fe882fc1f66df10bf8) |
 | Duelist Drop Funds         | [0x27678F4B1657d8D3819a67248bA3D44aea52EAE0](https://goerli.basescan.org/address/0x27678f4b1657d8d3819a67248ba3d44aea52eae0) |
-| Duelist Drop Funds Factory | [0xBbaCa9C24c47a548cf525d29A1feb6C70eCc77C5](https://goerli.basescan.org/address/0xbbaca9c24c47a548cf525d29a1feb6c70ecc77c5) |
+| Duelist Drop Funds Factory | [0x04E60BcE7aFc1e345Aa716c19D923b75C3ED5021](https://goerli.basescan.org/address/0x04E60BcE7aFc1e345Aa716c19D923b75C3ED5021) |
 
 
 ## What's it?
