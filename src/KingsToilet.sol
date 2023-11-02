@@ -40,6 +40,8 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
   //duelId => duelist => submission
   mapping(uint256 => mapping(address => ERC721Drop)) private _duelSubmissions;
 
+  string private _kingBadge = "ipfs://bafkreicwjb4knvsb5jskoq6kuyzctftctcmswjhpo2dwawcntsblh2evia";
+
 
   receive() external payable {}
   fallback() external payable {}
@@ -302,13 +304,17 @@ contract KingsToilet is IKingsToilet, ERC721, ReentrancyGuard, Ownable {
   function tokenURI(uint256 tokenId) public view override returns (string memory) {
     _requireMinted(tokenId);
 
-    return "ipfs://bafkreicwjb4knvsb5jskoq6kuyzctftctcmswjhpo2dwawcntsblh2evia";
+    return _kingBadge;
   }
 
   function updateOpenEditionPrice(uint256 newPrice) external onlyOwner {
     openEditionPrice = newPrice;
 
     emit OpenEditionPriceUpdated();
+  }
+
+  function updateKingBadge(string calldata kingBadge) external onlyOwner {
+    _kingBadge = kingBadge;
   }
 
   function updateMaxNumberDuels(uint256 newNumber) external onlyOwner {

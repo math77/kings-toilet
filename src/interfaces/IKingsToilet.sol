@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import {IERC721Drop} from "zora/src/interfaces/IERC721Drop.sol";
 import {ERC721Drop} from "zora/src/ERC721Drop.sol";
+import {DuelistDropFundsFactory} from "../DuelistDropFundsFactory.sol";
 
 interface IKingsToilet {
 
@@ -122,6 +123,16 @@ interface IKingsToilet {
     string calldata title,
     string calldata description
   ) external;
+
+  function updateOpenEditionPrice(uint256 newPrice) external;
+
+  function updateKingBadge(string calldata kingBadge) external;
+
+  function updateMaxNumberDuels(uint256 newNumber) external;
+
+  function setDropFundsFactoryAddress(DuelistDropFundsFactory newAddress) external;
+
+  function setFirstKing(address king) external;
 
   function addSuccessor(address successor) external;
 

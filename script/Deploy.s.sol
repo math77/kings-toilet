@@ -28,7 +28,7 @@ contract Deploy is Script {
       zoraNFTCreatorV1
     );
 
-    DuelistDropFunds dropFunds = DuelistDropFunds(0x27678F4B1657d8D3819a67248bA3D44aea52EAE0);
+    DuelistDropFunds dropFunds = DuelistDropFunds(payable(0x27678F4B1657d8D3819a67248bA3D44aea52EAE0));
     
 
     DuelistDropFundsFactory dropFundsFactory = new DuelistDropFundsFactory(address(dropFunds), address(kingsToilet));

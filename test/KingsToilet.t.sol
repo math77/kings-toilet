@@ -247,6 +247,12 @@ contract KingsToiletTest is Test {
     kingsToilet.updateOpenEditionPrice(0.5 ether);
   }
 
+  function testUpdateKingBadge() public {
+    kingsToilet.updateKingBadge("newBadge");
+    string memory tokenURI = kingsToilet.tokenURI(1);
+    assertEq(tokenURI, "newBadge");
+  }
+
   function testUpdateMaxNumberDuels() public {
     vm.expectEmit();
     emit MaxNumberDuelsUpdated();
